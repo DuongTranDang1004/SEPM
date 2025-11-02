@@ -1,6 +1,7 @@
 package org.example.Broomate.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -8,6 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.example.Broomate.config.CustomUserDetails;
 import org.example.Broomate.dto.request.tenant.UpdateTenantProfileRequest;
 import org.example.Broomate.dto.request.tenant.SwipeRequest;
@@ -16,20 +18,22 @@ import org.example.Broomate.dto.response.tenant.TenantListResponse;
 import org.example.Broomate.dto.response.tenant.SwipeResponse;
 import org.example.Broomate.dto.response.ErrorResponse;
 import org.example.Broomate.service.TenantService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/tenant")
 @Tag(name = "Tenant", description = "APIs available only for tenants")
 @SecurityRequirement(name = "bearerAuth")
+@RequiredArgsConstructor
 public class TenantController {
 
-    @Autowired
-    private TenantService tenantService;
+    private final TenantService tenantService;
 
     /**
      * GET ALL TENANTS FOR SWIPING
@@ -56,11 +60,11 @@ public class TenantController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * UPDATE TENANT PROFILE
-     */
-    @Operation(summary = "Update tenant profile",
-            description = "Update the authenticated tenant's profile information.")
+    // ========================================
+    // SCENARIO 2: UPDATE TENANT PROFILE (NORMAL FIELDS ONLY)
+    // ========================================
+    @Operation(summary = "Update tenant profile information",
+            description = "Update tenant profile fields (no avatar)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Profile successfully updated",
                     content = @Content(mediaType = "application/json",
@@ -77,7 +81,60 @@ public class TenantController {
             @Valid @RequestBody UpdateTenantProfileRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String tenantId = userDetails.getUserId();
-        TenantProfileResponse response = tenantService.updateTenantProfile(tenantId,request);
+        TenantProfileResponse response = tenantService.updateTenantProfile(tenantId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    // ========================================
+    // SCENARIO 2: UPDATE/ADD AVATAR
+    // ========================================
+    @Operation(summary = "Update tenant avatar",
+            description = "Upload or replace tenant profile avatar")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Avatar updated successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = TenantProfileResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid file or file too large",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Tenant not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping(value = "/profile/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<TenantProfileResponse> updateAvatar(
+            @Parameter(description = "Avatar image file")
+            @RequestParam("avatar") MultipartFile avatar,
+
+            @Parameter(description = "Replace existing avatar? (default: true)")
+            @RequestParam(value = "replace", defaultValue = "true") boolean replace,
+
+            @AuthenticationPrincipal CustomUserDetails userDetails) throws IOException {
+
+        String tenantId = userDetails.getUserId();
+        TenantProfileResponse response = tenantService.updateAvatar(tenantId, avatar, replace);
+        return ResponseEntity.ok(response);
+    }
+
+    // ========================================
+    // SCENARIO 3: DELETE AVATAR
+    // ========================================
+    @Operation(summary = "Delete tenant avatar",
+            description = "Remove tenant profile avatar")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Avatar deleted successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = TenantProfileResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Tenant not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @DeleteMapping("/profile/avatar")
+    public ResponseEntity<TenantProfileResponse> deleteAvatar(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        String tenantId = userDetails.getUserId();
+        TenantProfileResponse response = tenantService.deleteAvatar(tenantId);
         return ResponseEntity.ok(response);
     }
 
@@ -106,15 +163,15 @@ public class TenantController {
             @Valid @RequestBody SwipeRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String swiperTenantId = userDetails.getUserId();
-        SwipeResponse response = tenantService.swipeTenant( swiperTenantId,request);
+        SwipeResponse response = tenantService.swipeTenant(swiperTenantId, request);
         return ResponseEntity.ok(response);
     }
 
     /**
      * GET CURRENT TENANT PROFILE
      */
-    @Operation(summary = "Get current tenant profile",
-            description = "Retrieve the authenticated tenant's own profile information.")
+    @Operation(summary = "Get tenant profile",
+            description = "Retrieve tenant profile information by ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Successfully retrieved profile",
                     content = @Content(mediaType = "application/json",
@@ -124,9 +181,8 @@ public class TenantController {
                             schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/profile/{tenantId}")
-    public ResponseEntity<TenantProfileResponse> getCurrentTenantProfile(
-            @PathVariable String tenantId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<TenantProfileResponse> getTenantProfile(
+            @PathVariable String tenantId) {
         TenantProfileResponse response = tenantService.getTenantProfile(tenantId);
         return ResponseEntity.ok(response);
     }

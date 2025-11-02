@@ -1,6 +1,7 @@
 package org.example.Broomate.service;
 
 import com.google.cloud.Timestamp;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.Broomate.dto.request.tenant.SwipeRequest;
 import org.example.Broomate.dto.request.tenant.UpdateTenantProfileRequest;
@@ -13,11 +14,12 @@ import org.example.Broomate.model.Match;
 import org.example.Broomate.model.Swipe;
 import org.example.Broomate.model.Tenant;
 import org.example.Broomate.repository.TenantRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -25,10 +27,11 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class TenantService {
 
-    @Autowired
-    private TenantRepository tenantRepository;
+    private final TenantRepository tenantRepository;
+    private final FileUploadService fileUploadService;
 
     private static final int REJECTION_COOLDOWN_MINUTES = 10;
 
@@ -85,7 +88,7 @@ public class TenantService {
 
         // 9. Convert to response DTOs
         List<TenantProfileResponse> tenantResponses = availableTenants.stream()
-                .map(TenantProfileResponse::fromTenant)  // Changed from this::convertToProfileResponse
+                .map(TenantProfileResponse::fromTenant)
                 .collect(Collectors.toList());
 
         log.info("Found {} available tenants for swiping", tenantResponses.size());
@@ -112,8 +115,11 @@ public class TenantService {
         return TenantProfileResponse.fromTenant(tenant);
     }
 
+    // ========================================
+    // SCENARIO 2: UPDATE PROFILE (NORMAL FIELDS ONLY)
+    // ========================================
     /**
-     * Update tenant profile
+     * Update tenant profile (no avatar)
      */
     public TenantProfileResponse updateTenantProfile(String tenantId, UpdateTenantProfileRequest request) {
         log.info("Updating tenant profile for ID: {}", tenantId);
@@ -124,15 +130,23 @@ public class TenantService {
                         HttpStatus.NOT_FOUND,
                         "Tenant not found with ID: " + tenantId
                 ));
-        // 2. Update fields
+
+        // 2. Update normal fields (no avatar)
         tenant.setName(request.getName());
         tenant.setDescription(request.getDescription());
-        tenant.setAvatarUrl(request.getAvatar());
         tenant.setBudgetPerMonth(request.getBudgetPerMonth());
         tenant.setStayLengthMonths(request.getStayLength());
         tenant.setMoveInDate(request.getMoveInDate());
         tenant.setPreferredDistricts(request.getPreferredLocations());
         tenant.setPhone(request.getPhone());
+        tenant.setAge(request.getAge());
+        tenant.setGender(request.getGender());
+        tenant.setSmoking(request.isSmoking());
+        tenant.setCooking(request.isCooking());
+        tenant.setNeedWindow(request.isNeedWindow());
+        tenant.setMightShareBedRoom(request.isMightShareBedRoom());
+        tenant.setMightShareToilet(request.isMightShareToilet());
+        tenant.setUpdatedAt(Timestamp.now());
 
         // 3. Save updated tenant
         Tenant updatedTenant = tenantRepository.update(tenantId, tenant);
@@ -142,10 +156,76 @@ public class TenantService {
         return TenantProfileResponse.fromTenant(updatedTenant);
     }
 
+    // ========================================
+    // SCENARIO 2: UPDATE/ADD AVATAR
+    // ========================================
     /**
-     * Swipe on a tenant (accept or reject)
-     * Handles match creation and conversation initialization
+     * Update or add tenant avatar
      */
+    public TenantProfileResponse updateAvatar(String tenantId, MultipartFile avatar, boolean replace) throws IOException {
+        log.info("Updating avatar for tenant: {}", tenantId);
+
+        // 1. Get existing tenant
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Tenant not found with ID: " + tenantId
+                ));
+
+        // 2. Delete old avatar if replacing
+        if (replace && tenant.getAvatarUrl() != null) {
+            fileUploadService.deleteFile(tenant.getAvatarUrl());
+            log.info("Old avatar deleted");
+        }
+
+        // 3. Upload new avatar
+        String newAvatarUrl = fileUploadService.uploadFile(avatar, "avatars");
+        tenant.setAvatarUrl(newAvatarUrl);
+        tenant.setUpdatedAt(Timestamp.now());
+
+        // 4. Save updated tenant
+        Tenant updatedTenant = tenantRepository.update(tenantId, tenant);
+
+        log.info("Avatar updated successfully for tenant: {}", tenantId);
+
+        return TenantProfileResponse.fromTenant(updatedTenant);
+    }
+
+    // ========================================
+    // SCENARIO 3: DELETE AVATAR
+    // ========================================
+    /**
+     * Delete tenant avatar
+     */
+    public TenantProfileResponse deleteAvatar(String tenantId) {
+        log.info("Deleting avatar for tenant: {}", tenantId);
+
+        // 1. Get existing tenant
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Tenant not found with ID: " + tenantId
+                ));
+
+        // 2. Delete avatar from Firebase Storage
+        if (tenant.getAvatarUrl() != null) {
+            fileUploadService.deleteFile(tenant.getAvatarUrl());
+            tenant.setAvatarUrl(null);
+            tenant.setUpdatedAt(Timestamp.now());
+
+            // 3. Save updated tenant
+            tenant = tenantRepository.update(tenantId, tenant);
+            log.info("Avatar deleted successfully for tenant: {}", tenantId);
+        } else {
+            log.info("No avatar to delete for tenant: {}", tenantId);
+        }
+
+        return TenantProfileResponse.fromTenant(tenant);
+    }
+
+    // ========================================
+    // SWIPE LOGIC
+    // ========================================
     /**
      * Swipe on a tenant (accept or reject)
      * Handles match creation and conversation initialization
@@ -220,10 +300,10 @@ public class TenantService {
 
         return createMatchAndConversation(swiperTenantId, targetTenant, swipe);
     }
+
     // ========================================
     // PRIVATE HELPER METHODS
     // ========================================
-
     private SwipeResponse createMatchAndConversation(String currentTenantId, Tenant targetTenant, Swipe swipe) {
         // Create conversation
         String conversationId = UUID.randomUUID().toString();
@@ -271,6 +351,4 @@ public class TenantService {
                 "It's a match! You can now start chatting with " + targetTenant.getName() + "."
         );
     }
-
-
 }

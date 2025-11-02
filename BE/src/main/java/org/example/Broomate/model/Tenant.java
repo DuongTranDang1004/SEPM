@@ -35,7 +35,7 @@ public class Tenant extends Account {
     // and queried using tenantId as foreign key
 
 
-    enum GenderEnum {
+    public enum GenderEnum {
         MALE,
         FEMALE,
         OTHER

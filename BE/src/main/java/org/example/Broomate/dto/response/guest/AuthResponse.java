@@ -1,10 +1,5 @@
 package org.example.Broomate.dto.response.guest;
 
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-
-
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,23 +11,26 @@ import org.example.Broomate.model.Account;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Schema(description = "Authentication response")
+@Schema(description = "Authentication response with JWT token")
 public class AuthResponse {
 
-    @Schema(description = "JWT token", example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+    @Schema(description = "JWT access token", example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
     private String token;
 
     @Schema(description = "User ID", example = "user123")
     private String userId;
 
-    @Schema(description = "Email", example = "john@example.com")
+    @Schema(description = "User email", example = "user@example.com")
     private String email;
 
-    @Schema(description = "Full name", example = "John Doe")
+    @Schema(description = "User name", example = "John Doe")
     private String name;
 
-    @Schema(description = "User role. Must be TENANT or LANDLORD", example = "TENANT")
+    @Schema(description = "User role", example = "TENANT")
     private Account.AccountRoleEnum role;
+
+    @Schema(description = "Avatar URL (if uploaded during signup)")
+    private String avatarUrl;
 
     @Schema(description = "Response message", example = "Login successful")
     private String message;

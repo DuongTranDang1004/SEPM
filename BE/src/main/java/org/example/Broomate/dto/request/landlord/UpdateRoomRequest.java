@@ -10,7 +10,7 @@ import org.example.Broomate.model.Room;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "Request to update room information (no media files)")
+@Schema(description = "Request to update room information (no media files in this request body). Media files are handled in separate request multipart form data ")
 public class UpdateRoomRequest {
 
     @NotBlank(message = "Title is required")
