@@ -1,6 +1,7 @@
 package org.example.Broomate.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,10 +18,16 @@ import org.example.Broomate.dto.response.landlord.LandlordProfileResponse;
 import org.example.Broomate.dto.response.allAuthUser.RoomDetailResponse;
 import org.example.Broomate.service.LandlordService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/landlord")
@@ -34,7 +41,7 @@ public class LandlordController {
     /**
      * CREATE ROOM DETAIL
      */
-    @Operation(summary = "Create a new room",
+    @Operation(summary = "Create a new room with file uploads",
             description = "Create a new room listing with all details")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Room created successfully",
@@ -50,13 +57,36 @@ public class LandlordController {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @PostMapping("/rooms")
+    @PostMapping(value = "/rooms", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<RoomDetailResponse> createRoom(
-            @Valid @RequestBody CreateRoomRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @Valid @ModelAttribute CreateRoomRequest request,
+
+            @Parameter(description = "Thumbnail image file")
+            @RequestParam(value = "thumbnail", required = false) MultipartFile thumbnail,
+
+            @Parameter(description = "Multiple room image files")
+            @RequestParam(value = "images", required = false) List<MultipartFile> images,
+
+            @Parameter(description = "Multiple video files")
+            @RequestParam(value = "videos", required = false) List<MultipartFile> videos,
+
+            @Parameter(description = "Multiple document files (PDF, CSV, DOCX)")
+            @RequestParam(value = "documents", required = false) List<MultipartFile> documents,
+
+            @AuthenticationPrincipal CustomUserDetails userDetails) throws IOException {
+
         String landlordId = userDetails.getUserId();
-        RoomDetailResponse response = landlordService.createRoom(landlordId,request);
-        return ResponseEntity.status(201).body(response);
+
+        RoomDetailResponse response = landlordService.createRoom(
+                landlordId,
+                request,
+                thumbnail,
+                images,
+                videos,
+                documents
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**

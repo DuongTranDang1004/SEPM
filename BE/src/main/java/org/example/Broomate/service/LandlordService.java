@@ -14,8 +14,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -24,11 +27,22 @@ public class LandlordService {
 
     @Autowired
     private LandlordRepository landlordRepository;
+    private  FileUploadService fileUploadService;
+
 
     // ========================================
     // CREATE ROOM
     // ========================================
-    public RoomDetailResponse createRoom(String landlordId, CreateRoomRequest request) {
+    /**
+     * Create new room with file uploads
+     */
+    public RoomDetailResponse createRoom(
+            String landlordId,
+            CreateRoomRequest request,
+            MultipartFile thumbnail,
+            List<MultipartFile> images,
+            List<MultipartFile> videos,
+            List<MultipartFile> documents) throws IOException {
 
         log.info("Creating room for landlord: {}", landlordId);
 
@@ -39,36 +53,55 @@ public class LandlordService {
                         "Landlord not found with ID: " + landlordId
                 ));
 
-        // 2. Create new room
+        // 2. Upload files to Firebase Storage
+        log.info("Uploading files to Firebase Storage...");
+
+        String thumbnailUrl = null;
+        if (thumbnail != null && !thumbnail.isEmpty()) {
+            thumbnailUrl = fileUploadService.uploadFile(thumbnail, "thumbnails");
+            log.info("Thumbnail uploaded: {}", thumbnailUrl);
+        }
+
+        List<String> imageUrls = fileUploadService.uploadFiles(images, "images");
+        log.info("Uploaded {} images", imageUrls.size());
+
+        List<String> videoUrls = fileUploadService.uploadFiles(videos, "videos");
+        log.info("Uploaded {} videos", videoUrls.size());
+
+        List<String> documentUrls = fileUploadService.uploadFiles(documents, "documents");
+        log.info("Uploaded {} documents", documentUrls.size());
+
+        // 3. Create new room with uploaded file URLs
         Room room = Room.builder()
                 .id(UUID.randomUUID().toString())
                 .landlordId(landlordId)
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .thumbnailUrl(request.getThumbnailUrl())
-                .imageUrls(request.getImageUrls())
-                .videoUrls(request.getVideoUrls())
-                .documentUrls(request.getDocumentUrls())
+                .thumbnailUrl(thumbnailUrl)
+                .imageUrls(imageUrls)
+                .videoUrls(videoUrls)
+                .documentUrls(documentUrls)
                 .rentPricePerMonth(request.getRentPricePerMonth())
                 .minimumStayMonths(request.getMinimumStayMonths())
                 .address(request.getAddress())
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 .numberOfToilets(request.getNumberOfToilets())
-                .status(Room.RoomStatus.PUBLISHED)  // Default to PUBLISHED
+                .numberOfBedRooms(request.getNumberOfBedRooms())
+                .hasWindow(request.getHasWindow())
+                .status(Room.RoomStatus.PUBLISHED)
                 .createdAt(Timestamp.now())
                 .updatedAt(Timestamp.now())
                 .build();
 
-        // 3. Save to database
+        // 4. Save to Firestore
         Room savedRoom = landlordRepository.saveRoom(room);
 
         log.info("Room created successfully with ID: {}", savedRoom.getId());
 
-        // 4. Convert to response
+        // 5. Convert to response
         return RoomDetailResponse.fromRoom(savedRoom);
     }
-
     // ========================================
     // UPDATE ROOM
     // ========================================
