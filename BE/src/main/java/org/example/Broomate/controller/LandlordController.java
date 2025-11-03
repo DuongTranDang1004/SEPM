@@ -40,7 +40,7 @@ public class LandlordController {
     private final LandlordService landlordService;
 
     // SCENARIO 1: CREATE ROOM WITH MEDIA
-    // ========================================
+// ========================================
     @Operation(summary = "Create a new room with file uploads",
             description = "Create a new room listing with all details and media files (ATOMIC)")
     @ApiResponses(value = {
@@ -59,25 +59,68 @@ public class LandlordController {
     })
     @PostMapping(value = "/rooms", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<RoomDetailResponse> createRoom(
-            @Parameter(
-                    description = "Room creation json body",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = CreateRoomRequestJSON.class)
-                    )
-            )
-            @Valid CreateRoomRequestJSON request,
+            @Parameter(description = "Room title", example = "Cozy 2BR Apartment", required = true)
+            @RequestParam String title,
 
+            @Parameter(description = "Room description", example = "Beautiful apartment in the city center")
+            @RequestParam(required = false) String description,
 
+            @Parameter(description = "Monthly rent price", example = "5000000", required = true)
+            @RequestParam Double rentPricePerMonth,
+
+            @Parameter(description = "Minimum stay in months", example = "6", required = true)
+            @RequestParam Integer minimumStayMonths,
+
+            @Parameter(description = "Room address", example = "123 Main Street", required = true)
+            @RequestParam String address,
+
+            @Parameter(description = "Latitude coordinate", example = "10.7769")
+            @RequestParam(required = false) Double latitude,
+
+            @Parameter(description = "Longitude coordinate", example = "106.7009")
+            @RequestParam(required = false) Double longitude,
+
+            @Parameter(description = "Number of toilets", example = "2", required = true)
+            @RequestParam Integer numberOfToilets,
+
+            @Parameter(description = "Number of bedrooms", example = "2", required = true)
+            @RequestParam Integer numberOfBedRooms,
+
+            @Parameter(description = "Has window", example = "true", required = true)
+            @RequestParam boolean hasWindow,
+
+            @Parameter(description = "Thumbnail image file")
             @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail,
+
+            @Parameter(description = "Room images")
             @RequestPart(value = "images", required = false) List<MultipartFile> images,
+
+            @Parameter(description = "Room videos")
             @RequestPart(value = "videos", required = false) List<MultipartFile> videos,
+
+            @Parameter(description = "Room documents")
             @RequestPart(value = "documents", required = false) List<MultipartFile> documents,
 
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) throws IOException {
 
         String landlordId = userDetails.getUserId();
+
+        // Build the request object from individual parameters
+        CreateRoomRequestJSON request = new CreateRoomRequestJSON();
+        request.setTitle(title);
+        request.setDescription(description);
+        request.setRentPricePerMonth(rentPricePerMonth);
+        request.setMinimumStayMonths(minimumStayMonths);
+        request.setAddress(address);
+        request.setLatitude(latitude);
+        request.setLongitude(longitude);
+        request.setNumberOfToilets(numberOfToilets);
+        request.setNumberOfBedRooms(numberOfBedRooms);
+        request.setHasWindow(hasWindow);
+
+        // Validate manually since we're not using @Valid on the object
+        // You can inject Validator and validate here if needed
 
         RoomDetailResponse response = landlordService.createRoom(
                 landlordId,
