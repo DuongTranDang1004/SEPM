@@ -1,0 +1,195 @@
+package org.example.Broomate.controller;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+
+import org.example.Broomate.config.CustomUserDetails;
+import org.example.Broomate.dto.request.allAuthUser.ChangePasswordRequest;
+import org.example.Broomate.dto.request.allAuthUser.SendMessageRequest;
+import org.example.Broomate.dto.response.*;
+import org.example.Broomate.dto.response.allAuthUser.ConversationListResponse;
+import org.example.Broomate.dto.response.allAuthUser.MessageDetailResponse;
+import org.example.Broomate.dto.response.allAuthUser.RoomListResponse;
+import org.example.Broomate.dto.response.allAuthUser.RoomDetailResponse;
+import org.example.Broomate.service.AllAuthUserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/user")
+@Tag(name = "All Authenticated Users", description = "APIs available for both tenants and landlords")
+@SecurityRequirement(name = "bearerAuth")
+public class AllAuthUserController {
+
+    @Autowired
+    private AllAuthUserService allAuthUserService;
+
+    /**
+     * 1. GET ALL CONVERSATIONS
+     */
+    @Operation(summary = "Get all conversations",
+            description = "Retrieve all conversations for the authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversations retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ConversationListResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/conversations")
+    public ResponseEntity<ConversationListResponse> getAllConversations(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        String userId = userDetails.getUserId();
+        ConversationListResponse response = allAuthUserService.getAllConversations(userId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 2. GET ALL ROOMS
+     */
+    @Operation(summary = "Get all rooms",
+            description = "Retrieve all published rooms (for browsing)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Rooms retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = RoomListResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/rooms")
+    public ResponseEntity<RoomListResponse> getAllRooms(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        RoomListResponse response = allAuthUserService.getAllRooms();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 3. GET ROOM DETAIL
+     */
+    @Operation(summary = "Get room details",
+            description = "Retrieve detailed information about a specific room")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Room details retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = RoomDetailResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Room not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/rooms/{roomId}")
+    public ResponseEntity<RoomDetailResponse> getRoomDetail(
+            @PathVariable String roomId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        RoomDetailResponse response = allAuthUserService.getRoomDetail(roomId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 4. CHANGE PASSWORD
+     */
+    @Operation(summary = "Change password",
+            description = "Change the authenticated user's password")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Password changed successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = HTTPMessageResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid current password",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "User not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PutMapping("/change-password")
+    public ResponseEntity<HTTPMessageResponse> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        String userId = userDetails.getUserId();
+        HTTPMessageResponse response = allAuthUserService.changePassword(userId,request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 5. SEND MESSAGE
+     */
+    @Operation(summary = "Send message",
+            description = "Send a message in a conversation")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Message sent successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageDetailResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Not a participant in this conversation",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Conversation not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping("/conversations/{conversationId}/messages")
+    public ResponseEntity<MessageDetailResponse> sendMessage(
+            @PathVariable String conversationId,
+            @Valid @RequestBody SendMessageRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        String userId = userDetails.getUserId();
+        MessageDetailResponse response = allAuthUserService.sendMessage(userId, conversationId, request);
+        return ResponseEntity.status(201).body(response);
+    }
+
+    /**
+     * 6. DEACTIVATE PROFILE
+     */
+    @Operation(summary = "Deactivate profile",
+            description = "Deactivate the authenticated user's account")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile deactivated successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageDetailResponse.class))),
+            @ApiResponse(responseCode = "404", description = "User not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PutMapping("/deactivate")
+    public ResponseEntity<HTTPMessageResponse> deactivateProfile(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        String userId = userDetails.getUserId();
+        HTTPMessageResponse response = allAuthUserService.deactivateProfile(userId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 7. ACTIVATE PROFILE
+     */
+    @Operation(summary = "Activate profile",
+            description = "Reactivate the authenticated user's account")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile activated successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageDetailResponse.class))),
+            @ApiResponse(responseCode = "404", description = "User not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PutMapping("/activate/{userId}")
+    public ResponseEntity<HTTPMessageResponse> activateProfile(
+
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        String userId = userDetails.getUserId();
+
+        HTTPMessageResponse response = allAuthUserService.activateProfile(userId);
+        return ResponseEntity.ok(response);
+    }
+}
