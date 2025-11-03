@@ -3,7 +3,7 @@ package org.example.Broomate.service;
 import com.google.cloud.Timestamp;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.Broomate.dto.request.landlord.CreateRoomRequest;
+import org.example.Broomate.dto.request.landlord.CreateRoomRequestJSON;
 import org.example.Broomate.dto.request.landlord.UpdateLandlordProfileRequest;
 import org.example.Broomate.dto.request.landlord.UpdateRoomRequest;
 import org.example.Broomate.dto.response.landlord.LandlordProfileResponse;
@@ -39,7 +39,7 @@ public class LandlordService {
      */
     public RoomDetailResponse createRoom(
             String landlordId,
-            CreateRoomRequest request,
+            CreateRoomRequestJSON request,
             MultipartFile thumbnail,
             List<MultipartFile> images,
             List<MultipartFile> videos,
@@ -98,7 +98,7 @@ public class LandlordService {
                     .longitude(request.getLongitude())
                     .numberOfToilets(request.getNumberOfToilets())
                     .numberOfBedRooms(request.getNumberOfBedRooms())
-                    .hasWindow(request.getHasWindow())
+                    .hasWindow(request.isHasWindow())
                     .status(Room.RoomStatus.PUBLISHED)
                     .createdAt(Timestamp.now())
                     .updatedAt(Timestamp.now())

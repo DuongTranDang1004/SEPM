@@ -20,6 +20,9 @@ public class SupabaseConfig {
     private String region;
     @Value("${supabase.api-key}")
     private String apiKey;
+    // OR rename to getServiceRoleKey()
+    @Value("${supabase.service-role-key}")
+    private String serviceRoleKey;
 
     /**
      * Get the public URL for accessing files
@@ -35,4 +38,6 @@ public class SupabaseConfig {
     public String getStorageEndpoint() {
         return supabaseUrl + "/storage/v1/object/" + bucket;
     }
+
+
 }

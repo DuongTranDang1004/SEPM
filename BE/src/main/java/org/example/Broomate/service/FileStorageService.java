@@ -58,9 +58,12 @@ public class FileStorageService {
 
             HttpPost uploadRequest = new HttpPost(uploadUrl);
 
-            // Set headers with access key
-            uploadRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getApiKey());
-            uploadRequest.setHeader("apikey", supabaseConfig.getApiKey());
+            // Set headers with admin service role key
+//            uploadRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getApiKey());
+//            uploadRequest.setHeader("apikey", supabaseConfig.getApiKey());
+
+            uploadRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getServiceRoleKey());
+            uploadRequest.setHeader("apikey", supabaseConfig.getServiceRoleKey());
 
             // Build multipart entity
             HttpEntity entity = MultipartEntityBuilder.create()
@@ -150,12 +153,13 @@ public class FileStorageService {
 
                 HttpDelete deleteRequest = new HttpDelete(deleteUrl);
 
-                // Set headers with access key
-//                deleteRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getAccessKeyId());
-//                deleteRequest.setHeader("apikey", supabaseConfig.getAccessKeyId());
+                // Set headers with admin service key
+                deleteRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getServiceRoleKey());
+                deleteRequest.setHeader("apikey", supabaseConfig.getServiceRoleKey());
 
-                deleteRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getApiKey());
-                deleteRequest.setHeader("apikey", supabaseConfig.getApiKey());
+
+//                deleteRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getApiKey());
+//                deleteRequest.setHeader("apikey", supabaseConfig.getApiKey());
 
                 try (CloseableHttpResponse response = httpClient.execute(deleteRequest)) {
                     int statusCode = response.getCode();

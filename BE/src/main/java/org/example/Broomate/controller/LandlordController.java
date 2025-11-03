@@ -3,6 +3,7 @@ package org.example.Broomate.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -11,7 +12,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.Broomate.config.CustomUserDetails;
-import org.example.Broomate.dto.request.landlord.CreateRoomRequest;
+import org.example.Broomate.dto.request.landlord.CreateRoomRequestJSON;
+import org.example.Broomate.dto.request.landlord.CreateRoomWithMediaRequest;
 import org.example.Broomate.dto.request.landlord.UpdateLandlordProfileRequest;
 import org.example.Broomate.dto.request.landlord.UpdateRoomRequest;
 import org.example.Broomate.dto.response.ErrorResponse;
@@ -37,7 +39,6 @@ public class LandlordController {
 
     private final LandlordService landlordService;
 
-    // ========================================
     // SCENARIO 1: CREATE ROOM WITH MEDIA
     // ========================================
     @Operation(summary = "Create a new room with file uploads",
@@ -58,21 +59,23 @@ public class LandlordController {
     })
     @PostMapping(value = "/rooms", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<RoomDetailResponse> createRoom(
-            @Valid @ModelAttribute CreateRoomRequest request,
+            @Parameter(
+                    description = "Room creation json body",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = CreateRoomRequestJSON.class)
+                    )
+            )
+            @Valid CreateRoomRequestJSON request,
 
-            @Parameter(description = "Thumbnail image file")
-            @RequestParam(value = "thumbnail", required = false) MultipartFile thumbnail,
 
-            @Parameter(description = "Multiple room image files")
-            @RequestParam(value = "images", required = false) List<MultipartFile> images,
+            @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images,
+            @RequestPart(value = "videos", required = false) List<MultipartFile> videos,
+            @RequestPart(value = "documents", required = false) List<MultipartFile> documents,
 
-            @Parameter(description = "Multiple video files")
-            @RequestParam(value = "videos", required = false) List<MultipartFile> videos,
-
-            @Parameter(description = "Multiple document files (PDF, Excel, Word)")
-            @RequestParam(value = "documents", required = false) List<MultipartFile> documents,
-
-            @AuthenticationPrincipal CustomUserDetails userDetails) throws IOException {
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) throws IOException {
 
         String landlordId = userDetails.getUserId();
 
