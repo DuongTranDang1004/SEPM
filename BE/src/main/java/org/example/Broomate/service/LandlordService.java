@@ -28,7 +28,7 @@ import java.util.UUID;
 public class LandlordService {
 
     private final LandlordRepository landlordRepository;
-    private final FileUploadService fileUploadService;
+    private final FileStorageService fileStorageService;
 
     // ========================================
     // SCENARIO 1: CREATE ROOM (WITH ATOMICITY)
@@ -62,22 +62,22 @@ public class LandlordService {
 
             String thumbnailUrl = null;
             if (thumbnail != null && !thumbnail.isEmpty()) {
-                thumbnailUrl = fileUploadService.uploadFile(thumbnail, "thumbnails");
+                thumbnailUrl = fileStorageService.uploadFile(thumbnail, "thumbnails");
                 if (thumbnailUrl != null) {
                     uploadedUrls.add(thumbnailUrl);
                 }
                 log.info("Thumbnail uploaded: {}", thumbnailUrl);
             }
 
-            List<String> imageUrls = fileUploadService.uploadFiles(images, "images");
+            List<String> imageUrls = fileStorageService.uploadFiles(images, "images");
             uploadedUrls.addAll(imageUrls);
             log.info("Uploaded {} images", imageUrls.size());
 
-            List<String> videoUrls = fileUploadService.uploadFiles(videos, "videos");
+            List<String> videoUrls = fileStorageService.uploadFiles(videos, "videos");
             uploadedUrls.addAll(videoUrls);
             log.info("Uploaded {} videos", videoUrls.size());
 
-            List<String> documentUrls = fileUploadService.uploadFiles(documents, "documents");
+            List<String> documentUrls = fileStorageService.uploadFiles(documents, "documents");
             uploadedUrls.addAll(documentUrls);
             log.info("Uploaded {} documents", documentUrls.size());
 
@@ -117,7 +117,7 @@ public class LandlordService {
             log.error("Room creation failed, rolling back uploaded files", e);
             if (!uploadedUrls.isEmpty()) {
                 log.info("Deleting {} uploaded files...", uploadedUrls.size());
-                fileUploadService.deleteFiles(uploadedUrls);
+                fileStorageService.deleteFiles(uploadedUrls);
             }
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
@@ -204,16 +204,16 @@ public class LandlordService {
         if (thumbnail != null && !thumbnail.isEmpty()) {
             if (replaceThumbnail && room.getThumbnailUrl() != null) {
                 // Delete old thumbnail
-                fileUploadService.deleteFile(room.getThumbnailUrl());
+                fileStorageService.deleteFile(room.getThumbnailUrl());
             }
             // Upload new thumbnail
-            String newThumbnailUrl = fileUploadService.uploadFile(thumbnail, "thumbnails");
+            String newThumbnailUrl = fileStorageService.uploadFile(thumbnail, "thumbnails");
             room.setThumbnailUrl(newThumbnailUrl);
         }
 
         // 4. Add new images (keep existing)
         if (images != null && !images.isEmpty()) {
-            List<String> newImageUrls = fileUploadService.uploadFiles(images, "images");
+            List<String> newImageUrls = fileStorageService.uploadFiles(images, "images");
             List<String> allImageUrls = new ArrayList<>(room.getImageUrls() != null ? room.getImageUrls() : new ArrayList<>());
             allImageUrls.addAll(newImageUrls);
             room.setImageUrls(allImageUrls);
@@ -222,7 +222,7 @@ public class LandlordService {
 
         // 5. Add new videos (keep existing)
         if (videos != null && !videos.isEmpty()) {
-            List<String> newVideoUrls = fileUploadService.uploadFiles(videos, "videos");
+            List<String> newVideoUrls = fileStorageService.uploadFiles(videos, "videos");
             List<String> allVideoUrls = new ArrayList<>(room.getVideoUrls() != null ? room.getVideoUrls() : new ArrayList<>());
             allVideoUrls.addAll(newVideoUrls);
             room.setVideoUrls(allVideoUrls);
@@ -231,7 +231,7 @@ public class LandlordService {
 
         // 6. Add new documents (keep existing)
         if (documents != null && !documents.isEmpty()) {
-            List<String> newDocumentUrls = fileUploadService.uploadFiles(documents, "documents");
+            List<String> newDocumentUrls = fileStorageService.uploadFiles(documents, "documents");
             List<String> allDocumentUrls = new ArrayList<>(room.getDocumentUrls() != null ? room.getDocumentUrls() : new ArrayList<>());
             allDocumentUrls.addAll(newDocumentUrls);
             room.setDocumentUrls(allDocumentUrls);
@@ -266,7 +266,7 @@ public class LandlordService {
         }
 
         if (room.getThumbnailUrl() != null) {
-            fileUploadService.deleteFile(room.getThumbnailUrl());
+            fileStorageService.deleteFile(room.getThumbnailUrl());
             room.setThumbnailUrl(null);
             room.setUpdatedAt(Timestamp.now());
             room = landlordRepository.updateRoom(roomId, room);
@@ -293,7 +293,7 @@ public class LandlordService {
             // Delete from Firebase Storage
             for (String url : imageUrls) {
                 if (room.getImageUrls().contains(url)) {
-                    fileUploadService.deleteFile(url);
+                    fileStorageService.deleteFile(url);
                 }
             }
 
@@ -323,7 +323,7 @@ public class LandlordService {
         if (room.getVideoUrls() != null && videoUrls != null && !videoUrls.isEmpty()) {
             for (String url : videoUrls) {
                 if (room.getVideoUrls().contains(url)) {
-                    fileUploadService.deleteFile(url);
+                    fileStorageService.deleteFile(url);
                 }
             }
 
@@ -352,7 +352,7 @@ public class LandlordService {
         if (room.getDocumentUrls() != null && documentUrls != null && !documentUrls.isEmpty()) {
             for (String url : documentUrls) {
                 if (room.getDocumentUrls().contains(url)) {
-                    fileUploadService.deleteFile(url);
+                    fileStorageService.deleteFile(url);
                 }
             }
 

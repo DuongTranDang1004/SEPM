@@ -33,7 +33,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
-    private final FileUploadService fileUploadService;
+    private final FileStorageService fileStorageService;
 
     // ========================================
     // 1. LOGIN (No changes needed)
@@ -116,7 +116,7 @@ public class AuthService {
 
             // 3. Upload avatar to Firebase Storage (if provided)
             if (avatar != null && !avatar.isEmpty()) {
-                uploadedAvatarUrl = fileUploadService.uploadFile(avatar, "avatars");
+                uploadedAvatarUrl = fileStorageService.uploadFile(avatar, "avatars");
                 log.info("Avatar uploaded successfully: {}", uploadedAvatarUrl);
             }
 
@@ -201,7 +201,7 @@ public class AuthService {
             log.error("Signup failed, rolling back uploaded avatar", e);
             if (uploadedAvatarUrl != null) {
                 log.info("Deleting uploaded avatar: {}", uploadedAvatarUrl);
-                fileUploadService.deleteFile(uploadedAvatarUrl);
+                fileStorageService.deleteFile(uploadedAvatarUrl);
             }
 
             // Re-throw the exception

@@ -52,15 +52,15 @@ dependencies {
    // implementation 'com.auth0:java-jwt:4.5settings.gradle.0'
 
     implementation 'com.auth0:java-jwt:4.4.0'
+//    //HTTP Client for Supabase
+//
+//    implementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
+//    implementation 'org.apache.httpcomponents.core5:httpcore5:5.2.1'
+//
+//
+//    ////SL/TLS support for HTTP Client
+//      implementation 'org.apache.httpcomponents.client5:httpclient5-fluent:5.2.1'
 
-//    // JJWT API for creating and consuming JWTs
-//    implementation 'io.jsonwebtoken:jjwt-api:0.12.7' // Use the latest stable version
-//
-//    // JJWT implementation for actual JWT operations
-//    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.7' // Use the same version as jjwt-api
-//
-//    // JJWT Jackson extension for JSON parsing (optional, but commonly used)
-//    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.7' // Use the same version as jjwt-api
     // DevTools
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 

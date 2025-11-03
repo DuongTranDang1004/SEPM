@@ -22,6 +22,8 @@ public class FirebaseConfig {
     @Value("${firebase.database.url}")
     private String databaseUrl;
 
+
+
     @PostConstruct
     public void initialize() {
         try {
