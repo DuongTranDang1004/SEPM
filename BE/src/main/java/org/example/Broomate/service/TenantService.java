@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 public class TenantService {
 
     private final TenantRepository tenantRepository;
-    private final FileUploadService fileUploadService;
+    private final FileStorageService fileStorageService;
 
     private static final int REJECTION_COOLDOWN_MINUTES = 10;
 
@@ -174,12 +174,12 @@ public class TenantService {
 
         // 2. Delete old avatar if replacing
         if (replace && tenant.getAvatarUrl() != null) {
-            fileUploadService.deleteFile(tenant.getAvatarUrl());
+            fileStorageService.deleteFile(tenant.getAvatarUrl());
             log.info("Old avatar deleted");
         }
 
         // 3. Upload new avatar
-        String newAvatarUrl = fileUploadService.uploadFile(avatar, "avatars");
+        String newAvatarUrl = fileStorageService.uploadFile(avatar, "avatars");
         tenant.setAvatarUrl(newAvatarUrl);
         tenant.setUpdatedAt(Timestamp.now());
 
@@ -209,7 +209,7 @@ public class TenantService {
 
         // 2. Delete avatar from Firebase Storage
         if (tenant.getAvatarUrl() != null) {
-            fileUploadService.deleteFile(tenant.getAvatarUrl());
+            fileStorageService.deleteFile(tenant.getAvatarUrl());
             tenant.setAvatarUrl(null);
             tenant.setUpdatedAt(Timestamp.now());
 
