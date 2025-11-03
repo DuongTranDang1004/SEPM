@@ -21,6 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 
 @Slf4j
 @Service
@@ -29,7 +32,82 @@ public class FileStorageService {
 
     private final SupabaseConfig supabaseConfig;
     private final FileValidationService fileValidationService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Get a signed URL for a file
+     */
+    public String getSignedUrl(String filePath, int expiresInSeconds) throws IOException {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            String signUrl = String.format("%s/storage/v1/object/sign/%s/%s",
+                    supabaseConfig.getSupabaseUrl(),
+                    supabaseConfig.getBucket(),
+                    filePath);
+
+            HttpPost signRequest = new HttpPost(signUrl);
+
+            // Set headers
+            signRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getServiceRoleKey());
+            signRequest.setHeader("apikey", supabaseConfig.getServiceRoleKey());
+            signRequest.setHeader("Content-Type", "application/json");
+
+            // Set expiration time in request body
+            String jsonBody = String.format("{\"expiresIn\":%d}", expiresInSeconds);
+            signRequest.setEntity(new org.apache.hc.core5.http.io.entity.StringEntity(jsonBody));
+
+            try (CloseableHttpResponse response = httpClient.execute(signRequest)) {
+                int statusCode = response.getCode();
+                String responseBody = EntityUtils.toString(response.getEntity());
+
+                if (statusCode >= 200 && statusCode < 300) {
+                    // Parse the signed URL from response
+                    // Response format: {"signedURL": "https://..."}
+                    String signedUrl = parseSignedUrlFromResponse(responseBody);
+                    log.info("Generated signed URL for: {}", filePath);
+                    return signedUrl;
+                } else {
+                    log.error("Failed to generate signed URL. Status: {}, Response: {}", statusCode, responseBody);
+                    throw new IOException("Failed to generate signed URL");
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error generating signed URL for: {}", filePath, e);
+            throw new IOException("Error generating signed URL", e);
+        }
+    }
+
+//    /**
+//     * Parse signed URL from Supabase response
+//     */
+//    private String parseSignedUrlFromResponse(String responseBody) throws IOException {
+//        try {
+//            JsonNode jsonNode = objectMapper.readTree(responseBody);
+//            String signedPath = jsonNode.get("signedURL").asText();
+//
+//            // signedPath is like: "/storage/v1/object/sign/SEPM/thumbnails/xxx.jpeg?token=..."
+//            return supabaseConfig.getSupabaseUrl() + signedPath;
+//        } catch (Exception e) {
+//            log.error("Failed to parse signed URL from response: {}", responseBody, e);
+//            throw new IOException("Failed to parse signed URL", e);
+//        }
+//    }
+    /**
+     * Parse signed URL from Supabase response
+     */
+    private String parseSignedUrlFromResponse(String responseBody) {
+        // Response format: {"signedURL":"/object/sign/SEPM/...?token=..."}
+        int startIndex = responseBody.indexOf("\"signedURL\":\"") + 13;
+        int endIndex = responseBody.lastIndexOf("\"");
+
+        String signedPath = responseBody.substring(startIndex, endIndex);
+
+        // Supabase returns path without /storage/v1, so we need to add it
+        if (!signedPath.startsWith("/storage/v1")) {
+            signedPath = "/storage/v1" + signedPath;
+        }
+
+        return supabaseConfig.getSupabaseUrl() + signedPath;
+    }
     /**
      * Upload single file to Supabase Storage
      */
@@ -38,10 +116,8 @@ public class FileStorageService {
             return null;
         }
 
-        // Validate file based on folder type
         validateFileByFolder(file, folder);
 
-        // Generate unique filename
         String originalFilename = file.getOriginalFilename();
         String extension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
@@ -50,50 +126,39 @@ public class FileStorageService {
         String fileName = folder + "/" + UUID.randomUUID() + extension;
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            // Build upload URL
             String uploadUrl = String.format("%s/storage/v1/object/%s/%s",
                     supabaseConfig.getSupabaseUrl(),
                     supabaseConfig.getBucket(),
                     fileName);
 
             HttpPost uploadRequest = new HttpPost(uploadUrl);
-
-            // Set headers with admin service role key
-//            uploadRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getApiKey());
-//            uploadRequest.setHeader("apikey", supabaseConfig.getApiKey());
-
             uploadRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getServiceRoleKey());
             uploadRequest.setHeader("apikey", supabaseConfig.getServiceRoleKey());
+            uploadRequest.setHeader("Content-Type", file.getContentType());
 
-            // Build multipart entity
-            HttpEntity entity = MultipartEntityBuilder.create()
-                    .addBinaryBody("file", file.getBytes(),
-                            ContentType.create(Objects.requireNonNull(file.getContentType())),
-                            originalFilename)
-                    .build();
+            uploadRequest.setEntity(new org.apache.hc.core5.http.io.entity.ByteArrayEntity(
+                    file.getBytes(),
+                    ContentType.create(file.getContentType())
+            ));
 
-            uploadRequest.setEntity(entity);
-
-            // Execute upload
             try (CloseableHttpResponse response = httpClient.execute(uploadRequest)) {
                 int statusCode = response.getCode();
 
                 if (statusCode >= 200 && statusCode < 300) {
-                    // Get public URL
-                    String publicUrl = supabaseConfig.getPublicUrl(fileName);
-                    log.info("File uploaded successfully to Supabase: {} -> {}", originalFilename, publicUrl);
-                    return publicUrl;
+                    // Generate signed URL instead of public URL
+                    String signedUrl = getSignedUrl(fileName, 31536000); // 1 year expiration
+                    log.info("File uploaded successfully: {} -> {}", originalFilename, signedUrl);
+                    return signedUrl;
                 } else {
                     String responseBody = EntityUtils.toString(response.getEntity());
                     log.error("Failed to upload file. Status: {}, Response: {}", statusCode, responseBody);
-                    throw new IOException("Failed to upload file to Supabase. Status: " + statusCode);
+                    throw new IOException("Failed to upload file to Supabase");
                 }
             } catch (ParseException e) {
                 throw new RuntimeException(e);
             }
         }
     }
-
     /**
      * Upload multiple files
      */
