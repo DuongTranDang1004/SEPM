@@ -52,7 +52,7 @@ public class TenantService {
         // 2. Exclude current tenant
         List<Tenant> otherTenants = allTenants.stream()
                 .filter(tenant -> !tenant.getId().equals(currentTenantId))
-                .collect(Collectors.toList());
+                .toList();
 
         // 3. Get swipe history for current tenant
         List<Swipe> swipeHistory = tenantRepository.findSwipesBySwiperId(currentTenantId);
@@ -62,7 +62,7 @@ public class TenantService {
 
         // 5. Get IDs of recently rejected tenants (within last 10 minutes)
         Set<String> recentlyRejectedIds = swipeHistory.stream()
-                .filter(swipe -> "REJECT".equals(swipe.getAction()))
+                .filter(swipe -> false)
                 .filter(swipe -> swipe.getCreatedAt().toDate().toInstant().isAfter(tenMinutesAgo))
                 .map(Swipe::getTargetId)
                 .collect(Collectors.toSet());

@@ -76,21 +76,7 @@ public class FileStorageService {
         }
     }
 
-//    /**
-//     * Parse signed URL from Supabase response
-//     */
-//    private String parseSignedUrlFromResponse(String responseBody) throws IOException {
-//        try {
-//            JsonNode jsonNode = objectMapper.readTree(responseBody);
-//            String signedPath = jsonNode.get("signedURL").asText();
-//
-//            // signedPath is like: "/storage/v1/object/sign/SEPM/thumbnails/xxx.jpeg?token=..."
-//            return supabaseConfig.getSupabaseUrl() + signedPath;
-//        } catch (Exception e) {
-//            log.error("Failed to parse signed URL from response: {}", responseBody, e);
-//            throw new IOException("Failed to parse signed URL", e);
-//        }
-//    }
+
     /**
      * Parse signed URL from Supabase response
      */
@@ -107,6 +93,40 @@ public class FileStorageService {
         }
 
         return supabaseConfig.getSupabaseUrl() + signedPath;
+    }
+
+    /**
+     * Extract file path from either signed or public URL
+     */
+    private String extractFilePathFromUrl(String fileUrl) {
+        try {
+            // Try signed URL format first: /storage/v1/object/sign/SEPM/folder/file.ext?token=...
+            if (fileUrl.contains("/object/sign/")) {
+                String[] parts = fileUrl.split("/object/sign/" + supabaseConfig.getBucket() + "/");
+                if (parts.length >= 2) {
+                    // Remove query parameters (token)
+                    String pathWithToken = parts[1];
+                    int tokenIndex = pathWithToken.indexOf("?token=");
+                    if (tokenIndex > 0) {
+                        return pathWithToken.substring(0, tokenIndex);
+                    }
+                    return pathWithToken;
+                }
+            }
+
+            // Try public URL format: /storage/v1/object/public/SEPM/folder/file.ext
+            if (fileUrl.contains("/object/public/")) {
+                String[] parts = fileUrl.split("/object/public/" + supabaseConfig.getBucket() + "/");
+                if (parts.length >= 2) {
+                    return parts[1];
+                }
+            }
+
+            return null;
+        } catch (Exception e) {
+            log.error("Error extracting file path from URL: {}", fileUrl, e);
+            return null;
+        }
     }
     /**
      * Upload single file to Supabase Storage
@@ -200,15 +220,16 @@ public class FileStorageService {
                 return false;
             }
 
-            // Extract file path from URL
-            // URL format: https://dzysmnulhfhvownkvoct.supabase.co/storage/v1/object/public/SEPM/folder/filename.ext
-            String[] parts = fileUrl.split("/object/public/" + supabaseConfig.getBucket() + "/");
-            if (parts.length < 2) {
+            // Extract file path from signed URL
+            // Signed URL format: https://dzysmnulhfhvownkvoct.supabase.co/storage/v1/object/sign/SEPM/folder/filename.ext?token=...
+            // Public URL format: https://dzysmnulhfhvownkvoct.supabase.co/storage/v1/object/public/SEPM/folder/filename.ext
+
+            String filePath = extractFilePathFromUrl(fileUrl);
+
+            if (filePath == null) {
                 log.warn("Cannot parse file path from URL: {}", fileUrl);
                 return false;
             }
-
-            String filePath = parts[1];
 
             try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
                 String deleteUrl = String.format("%s/storage/v1/object/%s/%s",
@@ -221,10 +242,6 @@ public class FileStorageService {
                 // Set headers with admin service key
                 deleteRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getServiceRoleKey());
                 deleteRequest.setHeader("apikey", supabaseConfig.getServiceRoleKey());
-
-
-//                deleteRequest.setHeader("Authorization", "Bearer " + supabaseConfig.getApiKey());
-//                deleteRequest.setHeader("apikey", supabaseConfig.getApiKey());
 
                 try (CloseableHttpResponse response = httpClient.execute(deleteRequest)) {
                     int statusCode = response.getCode();
@@ -244,6 +261,7 @@ public class FileStorageService {
             return false;
         }
     }
+
 
     /**
      * Delete multiple files

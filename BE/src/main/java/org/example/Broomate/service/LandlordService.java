@@ -183,8 +183,7 @@ public class LandlordService {
             MultipartFile thumbnail,
             List<MultipartFile> images,
             List<MultipartFile> videos,
-            List<MultipartFile> documents,
-            boolean replaceThumbnail) throws IOException {
+            List<MultipartFile> documents) throws IOException {
 
         log.info("Adding media files to room {} for landlord {}", roomId, landlordId);
 
@@ -200,15 +199,17 @@ public class LandlordService {
             throw new AccessDeniedException("You don't have permission to update this room");
         }
 
-        // 3. Handle thumbnail
+        // 3. Handle thumbnail - ALWAYS replace if provided
         if (thumbnail != null && !thumbnail.isEmpty()) {
-            if (replaceThumbnail && room.getThumbnailUrl() != null) {
-                // Delete old thumbnail
+            // Delete old thumbnail if exists
+            if (room.getThumbnailUrl() != null) {
                 fileStorageService.deleteFile(room.getThumbnailUrl());
+                log.info("Deleted old thumbnail for room {}", roomId);
             }
             // Upload new thumbnail
             String newThumbnailUrl = fileStorageService.uploadFile(thumbnail, "thumbnails");
             room.setThumbnailUrl(newThumbnailUrl);
+            log.info("Uploaded new thumbnail for room {}", roomId);
         }
 
         // 4. Add new images (keep existing)
