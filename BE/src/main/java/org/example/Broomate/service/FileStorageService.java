@@ -1,15 +1,14 @@
 package org.example.Broomate.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpDelete;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.ContentType;
-import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.example.Broomate.config.SupabaseConfig;
@@ -19,11 +18,11 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -33,6 +32,9 @@ public class FileStorageService {
     private final SupabaseConfig supabaseConfig;
     private final FileValidationService fileValidationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    // Thread pool for parallel uploads (adjust size based on your needs)
+    private final ExecutorService uploadExecutor = Executors.newFixedThreadPool(15);
 
     /**
      * Get a signed URL for a file
@@ -60,8 +62,6 @@ public class FileStorageService {
                 String responseBody = EntityUtils.toString(response.getEntity());
 
                 if (statusCode >= 200 && statusCode < 300) {
-                    // Parse the signed URL from response
-                    // Response format: {"signedURL": "https://..."}
                     String signedUrl = parseSignedUrlFromResponse(responseBody);
                     log.info("Generated signed URL for: {}", filePath);
                     return signedUrl;
@@ -75,7 +75,6 @@ public class FileStorageService {
             throw new IOException("Error generating signed URL", e);
         }
     }
-
 
     /**
      * Parse signed URL from Supabase response
@@ -128,6 +127,7 @@ public class FileStorageService {
             return null;
         }
     }
+
     /**
      * Upload single file to Supabase Storage
      */
@@ -179,35 +179,53 @@ public class FileStorageService {
             }
         }
     }
+
     /**
-     * Upload multiple files
+     * Upload multiple files in PARALLEL
      */
     public List<String> uploadFiles(List<MultipartFile> files, String folder) throws IOException {
-        List<String> urls = new ArrayList<>();
-
         if (files == null || files.isEmpty()) {
-            return urls;
+            return new ArrayList<>();
         }
 
-        // Validate all files first
+        // Validate all files first (before starting uploads)
         validateFilesByFolder(files, folder);
 
-        for (MultipartFile file : files) {
-            if (file != null && !file.isEmpty()) {
-                try {
-                    String url = uploadFile(file, folder);
-                    if (url != null) {
-                        urls.add(url);
-                    }
-                } catch (Exception e) {
-                    log.error("Failed to upload file: {}", file.getOriginalFilename(), e);
-                    // Re-throw to maintain atomicity
-                    throw new IOException("Failed to upload file: " + file.getOriginalFilename(), e);
-                }
-            }
-        }
+        try {
+            // Create async upload tasks for all files
+            List<CompletableFuture<String>> uploadFutures = files.stream()
+                    .filter(file -> file != null && !file.isEmpty())
+                    .map(file -> CompletableFuture.supplyAsync(() -> {
+                        try {
+                            return uploadFile(file, folder);
+                        } catch (IOException e) {
+                            log.error("Failed to upload file: {}", file.getOriginalFilename(), e);
+                            throw new RuntimeException("Failed to upload file: " + file.getOriginalFilename(), e);
+                        }
+                    }, uploadExecutor))
+                    .collect(Collectors.toList());
 
-        return urls;
+            // Wait for all uploads to complete
+            CompletableFuture<Void> allUploads = CompletableFuture.allOf(
+                    uploadFutures.toArray(new CompletableFuture[0])
+            );
+
+            // Block until all uploads finish
+            allUploads.join();
+
+            // Collect all URLs
+            List<String> urls = uploadFutures.stream()
+                    .map(CompletableFuture::join)
+                    .filter(url -> url != null && !url.isEmpty())
+                    .collect(Collectors.toList());
+
+            log.info("Successfully uploaded {} files in parallel to folder: {}", urls.size(), folder);
+            return urls;
+
+        } catch (Exception e) {
+            log.error("Parallel upload failed", e);
+            throw new IOException("Failed to upload files in parallel", e);
+        }
     }
 
     /**
@@ -219,10 +237,6 @@ public class FileStorageService {
                 log.warn("Invalid file URL for deletion: {}", fileUrl);
                 return false;
             }
-
-            // Extract file path from signed URL
-            // Signed URL format: https://dzysmnulhfhvownkvoct.supabase.co/storage/v1/object/sign/SEPM/folder/filename.ext?token=...
-            // Public URL format: https://dzysmnulhfhvownkvoct.supabase.co/storage/v1/object/public/SEPM/folder/filename.ext
 
             String filePath = extractFilePathFromUrl(fileUrl);
 
@@ -262,22 +276,27 @@ public class FileStorageService {
         }
     }
 
-
     /**
-     * Delete multiple files
+     * Delete multiple files in PARALLEL
      */
     public void deleteFiles(List<String> fileUrls) {
         if (fileUrls == null || fileUrls.isEmpty()) {
             return;
         }
 
-        int deletedCount = 0;
-        for (String url : fileUrls) {
-            if (deleteFile(url)) {
-                deletedCount++;
-            }
-        }
-        log.info("Deleted {}/{} files from Supabase Storage", deletedCount, fileUrls.size());
+        List<CompletableFuture<Boolean>> deleteFutures = fileUrls.stream()
+                .map(url -> CompletableFuture.supplyAsync(() -> deleteFile(url), uploadExecutor))
+                .collect(Collectors.toList());
+
+        // Wait for all deletions to complete
+        CompletableFuture.allOf(deleteFutures.toArray(new CompletableFuture[0])).join();
+
+        long successCount = deleteFutures.stream()
+                .map(CompletableFuture::join)
+                .filter(success -> success)
+                .count();
+
+        log.info("Deleted {}/{} files from Supabase Storage in parallel", successCount, fileUrls.size());
     }
 
     /**
