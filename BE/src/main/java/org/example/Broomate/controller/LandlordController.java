@@ -131,10 +131,11 @@ public class LandlordController {
     }
 
     // ========================================
-    // SCENARIO 2: UPDATE ROOM INFO (NO MEDIA)
+    // UPDATE ROOM (UNIFIED - INFO + MEDIA)
     // ========================================
-    @Operation(summary = "Update room basic information",
-            description = "Update room details without changing media files")
+    @Operation(summary = "Update room with info and media files",
+            description = "Update room details and media files in a single atomic operation. " +
+                    "Provide new files to add and URLs of files to remove.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Room updated successfully",
                     content = @Content(mediaType = "application/json",
@@ -149,24 +150,60 @@ public class LandlordController {
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @PutMapping("/rooms/{roomId}")
+    @PutMapping(value = "/rooms/{roomId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<RoomDetailResponse> updateRoom(
-            @PathVariable String roomId,
-            @Valid @RequestBody UpdateRoomRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-
-        String landlordId = userDetails.getUserId();
-        RoomDetailResponse response = landlordService.updateRoom(landlordId, roomId, request);
-        return ResponseEntity.ok(response);
-    }
-
-    @Operation(summary = "Add media files to existing room",
-            description = "Upload new media files to an existing room (keeps existing files, replaces thumbnail if provided)")
-    @PostMapping(value = "/rooms/{roomId}/media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<RoomDetailResponse> updateRoomMedia(
+            @Parameter(description = "Room ID", required = true)
             @PathVariable String roomId,
 
-            @Parameter(description = "New thumbnail (replaces existing if provided)")
+            // Basic room information
+            @Parameter(description = "Room title", example = "Cozy 2BR Apartment", required = true)
+            @RequestParam String title,
+
+            @Parameter(description = "Room description", example = "Beautiful apartment")
+            @RequestParam(required = false) String description,
+
+            @Parameter(description = "Monthly rent price", example = "5000000", required = true)
+            @RequestParam Double rentPricePerMonth,
+
+            @Parameter(description = "Minimum stay in months", example = "6", required = true)
+            @RequestParam Integer minimumStayMonths,
+
+            @Parameter(description = "Room address", example = "123 Main Street", required = true)
+            @RequestParam String address,
+
+            @Parameter(description = "Latitude coordinate", example = "10.7769")
+            @RequestParam(required = false) Double latitude,
+
+            @Parameter(description = "Longitude coordinate", example = "106.7009")
+            @RequestParam(required = false) Double longitude,
+
+            @Parameter(description = "Number of toilets", example = "2", required = true)
+            @RequestParam Integer numberOfToilets,
+
+            @Parameter(description = "Number of bedrooms", example = "2", required = true)
+            @RequestParam Integer numberOfBedRooms,
+
+            @Parameter(description = "Has window", example = "true", required = true)
+            @RequestParam Boolean hasWindow,
+
+            @Parameter(description = "Room status", example = "PUBLISHED")
+            @RequestParam(required = false) String status,
+
+            // Files to remove (URLs)
+            @Parameter(description = "Image URLs to remove")
+            @RequestParam(required = false) List<String> imagesToRemove,
+
+            @Parameter(description = "Video URLs to remove")
+            @RequestParam(required = false) List<String> videosToRemove,
+
+            @Parameter(description = "Document URLs to remove")
+            @RequestParam(required = false) List<String> documentsToRemove,
+
+            @Parameter(description = "Replace thumbnail (true to remove old)")
+            @RequestParam(required = false, defaultValue = "false") Boolean replaceThumbnail,
+
+            // New files to add
+            @Parameter(description = "New thumbnail image")
             @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail,
 
             @Parameter(description = "New images to add")
@@ -178,151 +215,39 @@ public class LandlordController {
             @Parameter(description = "New documents to add")
             @RequestPart(value = "documents", required = false) List<MultipartFile> documents,
 
-            @AuthenticationPrincipal CustomUserDetails userDetails) throws IOException {
-
-        String landlordId = userDetails.getUserId();
-        RoomDetailResponse response = landlordService.addRoomMedia(
-                landlordId, roomId, thumbnail, images, videos, documents);
-        return ResponseEntity.ok(response);
-    }
-    // ========================================
-    // SCENARIO 3: DELETE MEDIA FILES
-    // ========================================
-
-    @Operation(summary = "Delete room thumbnail")
-    @DeleteMapping("/rooms/{roomId}/thumbnail")
-    public ResponseEntity<RoomDetailResponse> deleteThumbnail(
-            @PathVariable String roomId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-
-        String landlordId = userDetails.getUserId();
-        RoomDetailResponse response = landlordService.deleteThumbnail(landlordId, roomId);
-        return ResponseEntity.ok(response);
-    }
-
-    // DELETE VIDEOS
-    @Operation(
-            summary = "Delete specific room videos",
-            description = "Delete one or more videos from a room by providing their URLs"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Videos deleted successfully",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = RoomDetailResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Room not found",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Forbidden - Not the room owner",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @DeleteMapping("/rooms/{roomId}/videos")
-    public ResponseEntity<RoomDetailResponse> deleteVideos(
-            @Parameter(description = "Room ID", required = true, example = "3fa81a66-68fe-4cde-97be-a12514fe1778")
-            @PathVariable String roomId,
-
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Video URLs to delete",
-                    required = true,
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = DeleteVideosRequest.class)
-                    )
-            )
-            @Valid @RequestBody DeleteVideosRequest request,
-
             @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
+    ) throws IOException {
+
         String landlordId = userDetails.getUserId();
-        RoomDetailResponse response = landlordService.deleteVideos(
+
+        // Build request object
+        UpdateRoomWithBothInfoAndMediaRequest request = new UpdateRoomWithBothInfoAndMediaRequest();
+        request.setTitle(title);
+        request.setDescription(description);
+        request.setRentPricePerMonth(rentPricePerMonth);
+        request.setMinimumStayMonths(minimumStayMonths);
+        request.setAddress(address);
+        request.setLatitude(latitude);
+        request.setLongitude(longitude);
+        request.setNumberOfToilets(numberOfToilets);
+        request.setNumberOfBedRooms(numberOfBedRooms);
+        request.setHasWindow(hasWindow);
+        request.setStatus(status != null ? org.example.Broomate.model.Room.RoomStatus.valueOf(status) : null);
+        request.setImagesToRemove(imagesToRemove);
+        request.setVideosToRemove(videosToRemove);
+        request.setDocumentsToRemove(documentsToRemove);
+        request.setReplaceThumbnail(replaceThumbnail);
+
+        RoomDetailResponse response = landlordService.updateRoomBothInfoAndMediaFile(
                 landlordId,
                 roomId,
-                request.getVideoUrls()
+                request,
+                thumbnail,
+                images,
+                videos,
+                documents
         );
-        return ResponseEntity.ok(response);
-    }
 
-    // DELETE IMAGES
-    @Operation(
-            summary = "Delete specific room images",
-            description = "Delete one or more images from a room by providing their URLs"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Images deleted successfully",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = RoomDetailResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Room not found",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Forbidden - Not the room owner",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @DeleteMapping("/rooms/{roomId}/images")
-    public ResponseEntity<RoomDetailResponse> deleteImages(
-            @Parameter(description = "Room ID", required = true, example = "3fa81a66-68fe-4cde-97be-a12514fe1778")
-            @PathVariable String roomId,
-
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Image URLs to delete",
-                    required = true,
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = DeleteImagesRequest.class)
-                    )
-            )
-            @Valid @RequestBody DeleteImagesRequest request,
-
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        String landlordId = userDetails.getUserId();
-        RoomDetailResponse response = landlordService.deleteImages(
-                landlordId,
-                roomId,
-                request.getImageUrls()
-        );
-        return ResponseEntity.ok(response);
-    }
-
-    // DELETE DOCUMENTS
-    @Operation(
-            summary = "Delete specific room documents",
-            description = "Delete one or more documents from a room by providing their URLs"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Documents deleted successfully",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = RoomDetailResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Room not found",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Forbidden - Not the room owner",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    @DeleteMapping("/rooms/{roomId}/documents")
-    public ResponseEntity<RoomDetailResponse> deleteDocuments(
-            @Parameter(description = "Room ID", required = true, example = "3fa81a66-68fe-4cde-97be-a12514fe1778")
-            @PathVariable String roomId,
-
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Document URLs to delete",
-                    required = true,
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = DeleteDocumentsRequest.class)
-                    )
-            )
-            @Valid @RequestBody DeleteDocumentsRequest request,
-
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        String landlordId = userDetails.getUserId();
-        RoomDetailResponse response = landlordService.deleteDocuments(
-                landlordId,
-                roomId,
-                request.getDocumentUrls()
-        );
         return ResponseEntity.ok(response);
     }
     // ========================================
