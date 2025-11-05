@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class FileStorageService {
+public class    FileStorageService {
 
     private final SupabaseConfig supabaseConfig;
     private final FileValidationService fileValidationService;

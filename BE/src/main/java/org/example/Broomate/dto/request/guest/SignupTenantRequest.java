@@ -53,6 +53,7 @@ public class SignupTenantRequest {
     private String gender;
 
     @Min(value = 1, message = "Stay length must be at least 1 month")
+    @NotNull(message = "Stay length is required")
     @Schema(description = "Desired stay length in months", example = "6")
     private Integer stayLengthMonths;
 
@@ -66,6 +67,7 @@ public class SignupTenantRequest {
     private boolean cooking;
 
     // Room preference criteria
+    @NotNull(message = "Budget is required")
     @Positive(message = "Budget must be positive")
     @Schema(description = "Monthly budget in VND", example = "5000000")
     private Double budgetPerMonth;
