@@ -32,8 +32,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints (no authentication needed)
                         .requestMatchers(
-                                "/api/auth/login",
-                                "/api/auth/signup",
+                                "/api/auth/**",  // ✅ Changed: Allow ALL auth endpoints
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",

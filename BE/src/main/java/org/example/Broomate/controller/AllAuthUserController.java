@@ -1,6 +1,7 @@
 package org.example.Broomate.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -19,10 +20,15 @@ import org.example.Broomate.dto.response.allAuthUser.RoomListResponse;
 import org.example.Broomate.dto.response.allAuthUser.RoomDetailResponse;
 import org.example.Broomate.service.AllAuthUserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/user")
@@ -123,32 +129,40 @@ public class AllAuthUserController {
     /**
      * 5. SEND MESSAGE
      */
-    @Operation(summary = "Send message",
-            description = "Send a message in a conversation")
+    @Operation(
+            summary = "Send a message with optional media",
+            description = "Send a text message with an optional media file (image, video, or document). Only one file per message."
+    )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Message sent successfully",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = MessageDetailResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Not a participant in this conversation",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Conversation not found",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "403", description = "Not a conversation participant"),
+            @ApiResponse(responseCode = "404", description = "Conversation not found")
     })
-    @PostMapping("/conversations/{conversationId}/messages")
+    @PostMapping(value = "/conversations/{conversationId}/messages", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MessageDetailResponse> sendMessage(
+            @Parameter(description = "Conversation ID", required = true)
             @PathVariable String conversationId,
-            @Valid @RequestBody SendMessageRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        String userId = userDetails.getUserId();
-        MessageDetailResponse response = allAuthUserService.sendMessage(userId, conversationId, request);
-        return ResponseEntity.status(201).body(response);
-    }
 
+            @Parameter(description = "Message content", required = true, example = "Hello, is this room still available?")
+            @RequestParam String content,
+
+            @Parameter(description = "Optional media file (image, video, or document)")
+            @RequestPart(value = "media", required = false) MultipartFile media,
+
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) throws IOException {
+        String userId = userDetails.getUserId();
+
+        // Build request
+        SendMessageRequest request = SendMessageRequest.builder()
+                .content(content)
+                .build();
+
+        MessageDetailResponse response = allAuthUserService.sendMessage(userId, conversationId, request, media);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
     /**
      * 6. DEACTIVATE PROFILE
      */

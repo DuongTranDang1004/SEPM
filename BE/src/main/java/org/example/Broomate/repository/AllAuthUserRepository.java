@@ -5,6 +5,7 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.firebase.cloud.FirestoreClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.Broomate.model.Account;
 import org.example.Broomate.model.Conversation;
@@ -16,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-
+@RequiredArgsConstructor
 @Slf4j
 @Repository
 public class AllAuthUserRepository {
@@ -25,6 +26,8 @@ public class AllAuthUserRepository {
     private static final String CONVERSATIONS_COLLECTION = "conversations";
     private static final String MESSAGES_COLLECTION = "messages";
     private static final String ROOMS_COLLECTION = "rooms";
+    private final Firestore firestore;
+
 
     // ========================================
     // CONVERSATION OPERATIONS
@@ -35,7 +38,6 @@ public class AllAuthUserRepository {
      */
     public List<Conversation> findConversationsByUserId(String userId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             List<QueryDocumentSnapshot> documents = firestore.collection(CONVERSATIONS_COLLECTION)
                     .whereArrayContains("participantIds", userId)
                     .orderBy("lastMessageAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
@@ -60,7 +62,6 @@ public class AllAuthUserRepository {
      */
     public Optional<Conversation> findConversationById(String conversationId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             DocumentSnapshot document =  firestore
                     .collection(CONVERSATIONS_COLLECTION)
                     .document(conversationId)
@@ -83,7 +84,6 @@ public class AllAuthUserRepository {
      */
     public Conversation updateConversation(String conversationId, Conversation conversation) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             conversation.setUpdatedAt(Timestamp.now());
 
             firestore.collection(CONVERSATIONS_COLLECTION)
@@ -107,7 +107,6 @@ public class AllAuthUserRepository {
      */
     public Message saveMessage(Message message) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             firestore.collection(MESSAGES_COLLECTION)
                     .document(message.getId())
                     .set(message)
@@ -129,7 +128,6 @@ public class AllAuthUserRepository {
      */
     public List<Room> findAllPublishedRooms() {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             List<QueryDocumentSnapshot> documents = firestore.collection(ROOMS_COLLECTION)
                     .whereEqualTo("status", "PUBLISHED")
                     .get()
@@ -153,7 +151,6 @@ public class AllAuthUserRepository {
      */
     public Optional<Room> findRoomById(String roomId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
 
             // ✅ Use DocumentSnapshot instead of QueryDocumentSnapshot
             DocumentSnapshot document = firestore
@@ -182,7 +179,6 @@ public class AllAuthUserRepository {
      */
     public Optional<Account> findAccountById(String userId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
 
             // Try tenants collection first
             DocumentSnapshot document = firestore
@@ -218,7 +214,6 @@ public class AllAuthUserRepository {
      */
     public Account updateAccount(String userId, Account account) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             account.setUpdatedAt(Timestamp.now());
 
             // Determine collection based on role

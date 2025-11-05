@@ -3,21 +3,18 @@ package org.example.Broomate.repository;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
+import lombok.RequiredArgsConstructor;
 import org.example.Broomate.model.BaseModel;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+@RequiredArgsConstructor
 
 @Repository
 public class FirestoreRepository<T extends BaseModel> {
-
-    protected final Firestore firestore;
-
-    public FirestoreRepository() {
-        this.firestore = FirestoreClient.getFirestore();
-    }
+    private final Firestore firestore;
 
     // Create or Update
     public String save(String collectionName, T entity) throws ExecutionException, InterruptedException {
