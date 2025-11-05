@@ -5,6 +5,7 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.firebase.cloud.FirestoreClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.Broomate.model.Landlord;
 import org.example.Broomate.model.Room;
@@ -12,13 +13,14 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-
+@RequiredArgsConstructor
 @Slf4j
 @Repository
 public class LandlordRepository {
 
     private static final String LANDLORDS_COLLECTION = "landlords";
     private static final String ROOMS_COLLECTION = "rooms";
+    private final Firestore firestore;
 
     // ========================================
     // LANDLORD CRUD OPERATIONS
@@ -29,7 +31,6 @@ public class LandlordRepository {
      */
     public Optional<Landlord> findById(String landlordId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             DocumentSnapshot document =  firestore
                     .collection(LANDLORDS_COLLECTION)
                     .document(landlordId)
@@ -52,7 +53,6 @@ public class LandlordRepository {
      */
     public Landlord update(String landlordId, Landlord landlord) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             landlord.setUpdatedAt(Timestamp.now());
 
             firestore.collection(LANDLORDS_COLLECTION)

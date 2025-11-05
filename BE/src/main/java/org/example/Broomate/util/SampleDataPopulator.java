@@ -1,6 +1,7 @@
 package org.example.Broomate.util;
 
 import com.google.cloud.firestore.Firestore;
+import lombok.RequiredArgsConstructor;
 import org.example.Broomate.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -8,12 +9,12 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-
+@RequiredArgsConstructor
 @Component
 public class SampleDataPopulator {
 
     @Autowired
-    private Firestore firestore;
+    private final Firestore firestore;
 
     private final Random random = new Random();
     

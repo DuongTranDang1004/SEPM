@@ -6,6 +6,7 @@ import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
 import com.google.firebase.cloud.FirestoreClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.Broomate.model.Tenant;
 import org.example.Broomate.model.Match;
@@ -21,12 +22,14 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
+@RequiredArgsConstructor
 public class TenantRepository {
 
     private static final String TENANTS_COLLECTION = "tenants";
     private static final String SWIPES_COLLECTION = "swipes";
     private static final String MATCHES_COLLECTION = "matches";
     private static final String CONVERSATIONS_COLLECTION = "conversations";
+    private final Firestore firestore;
 
     // ========================================
     // TENANT CRUD OPERATIONS
@@ -37,7 +40,6 @@ public class TenantRepository {
      */
     public Optional<Tenant> findById(String tenantId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             DocumentSnapshot document =  firestore
                     .collection(TENANTS_COLLECTION)
                     .document(tenantId)
@@ -60,7 +62,6 @@ public class TenantRepository {
      */
     public List<Tenant> findAllActiveTenants() {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             QuerySnapshot querySnapshot = firestore.collection(TENANTS_COLLECTION)
                     .whereEqualTo("role", "TENANT")
                     .whereEqualTo("active", true)
@@ -81,7 +82,6 @@ public class TenantRepository {
      */
     public Tenant update(String tenantId, Tenant tenant) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             tenant.setUpdatedAt(Timestamp.now());
             
             firestore.collection(TENANTS_COLLECTION)
@@ -105,7 +105,6 @@ public class TenantRepository {
      */
     public List<Swipe> findSwipesBySwiperId(String swiperId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             QuerySnapshot querySnapshot = firestore.collection(SWIPES_COLLECTION)
                     .whereEqualTo("swiperId", swiperId)
                     .get()
@@ -125,7 +124,6 @@ public class TenantRepository {
      */
     public Optional<Swipe> findSwipe(String swiperId, String targetId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             QuerySnapshot querySnapshot = firestore.collection(SWIPES_COLLECTION)
                     .whereEqualTo("swiperId", swiperId)
                     .whereEqualTo("targetId", targetId)
@@ -148,7 +146,6 @@ public class TenantRepository {
      */
     public Swipe saveSwipe(Swipe swipe) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             firestore.collection(SWIPES_COLLECTION)
                     .document(swipe.getId())
                     .set(swipe)
@@ -170,8 +167,7 @@ public class TenantRepository {
      */
     public List<Match> findActiveMatchesByTenantId(String tenantId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
-            
+
             // Need to query twice since Firestore doesn't support OR on different fields
             QuerySnapshot matches1 = firestore.collection(MATCHES_COLLECTION)
                     .whereEqualTo("tenant1Id", tenantId)
@@ -205,7 +201,6 @@ public class TenantRepository {
      */
     public Match saveMatch(Match match) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             firestore.collection(MATCHES_COLLECTION)
                     .document(match.getId())
                     .set(match)
@@ -227,7 +222,6 @@ public class TenantRepository {
      */
     public Conversation saveConversation(Conversation conversation) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             firestore.collection(CONVERSATIONS_COLLECTION)
                     .document(conversation.getId())
                     .set(conversation)

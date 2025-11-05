@@ -8,12 +8,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Schema(description = "Send message request")
 public class SendMessageRequest {
 
     @NotBlank(message = "Message content is required")
@@ -21,6 +20,5 @@ public class SendMessageRequest {
     @Schema(description = "Message content", example = "Hello, is this room still available?")
     private String content;
 
-    @Schema(description = "Media URLs (images, videos, files)", example = "[]")
-    private List<String> mediaUrls;
+    // Removed mediaUrls - we'll upload the file instead
 }
