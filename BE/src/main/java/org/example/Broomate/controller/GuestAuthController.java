@@ -53,13 +53,7 @@ public class GuestAuthController {
         return ResponseEntity.ok(response);
     }
 
-    @RestController
-    @RequestMapping("/api/auth")
-    @Tag(name = "Authentication", description = "Authentication and user registration APIs")
-    @RequiredArgsConstructor
-    public class AuthController {
 
-        private final AuthService authService;
 
         // ========================================
         // TENANT SIGNUP
@@ -225,4 +219,3 @@ public class GuestAuthController {
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         }
     }
-}
