@@ -13,11 +13,13 @@ import lombok.RequiredArgsConstructor;
 import org.example.Broomate.config.CustomUserDetails;
 import org.example.Broomate.dto.request.tenant.UpdateTenantProfileRequest;
 import org.example.Broomate.dto.request.tenant.SwipeRequest;
+import org.example.Broomate.dto.response.tenant.BookmarkResponse;
 import org.example.Broomate.dto.response.tenant.TenantProfileResponse;
 import org.example.Broomate.dto.response.tenant.TenantListResponse;
 import org.example.Broomate.dto.response.tenant.SwipeResponse;
 import org.example.Broomate.dto.response.ErrorResponse;
 import org.example.Broomate.service.TenantService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -204,6 +206,70 @@ public class TenantController {
     ) {
         String tenantId = userDetails.getUserId();
         TenantProfileResponse response = tenantService.getTenantProfile(tenantId);
+        return ResponseEntity.ok(response);
+    }
+    // ========================================
+// BOOKMARK MANAGEMENT
+// ========================================
+
+    @Operation(
+            summary = "Bookmark a room",
+            description = "Add a room to your bookmarks/favorites"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Room bookmarked successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = BookmarkResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Room or tenant not found"),
+            @ApiResponse(responseCode = "409", description = "Room already bookmarked")
+    })
+    @PostMapping("/bookmarks/rooms/{roomId}")
+    public ResponseEntity<BookmarkResponse> bookmarkRoom(
+            @Parameter(description = "Room ID to bookmark", required = true)
+            @PathVariable String roomId,
+
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        String tenantId = userDetails.getUserId();
+        BookmarkResponse response = tenantService.bookmarkRoom(tenantId, roomId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Operation(
+            summary = "Unbookmark a room",
+            description = "Remove a room from your bookmarks/favorites"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Room unbookmarked successfully"),
+            @ApiResponse(responseCode = "404", description = "Bookmark not found")
+    })
+    @DeleteMapping("/bookmarks/rooms/{roomId}")
+    public ResponseEntity<Void> unbookmarkRoom(
+            @Parameter(description = "Room ID to unbookmark", required = true)
+            @PathVariable String roomId,
+
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        String tenantId = userDetails.getUserId();
+        tenantService.unbookmarkRoom(tenantId, roomId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Get all bookmarked rooms",
+            description = "Retrieve all rooms that you have bookmarked with full room details"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Bookmarks retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = BookmarkResponse.class)))
+    })
+    @GetMapping("/bookmarks")
+    public ResponseEntity<List<BookmarkResponse>> getAllBookmarks(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        String tenantId = userDetails.getUserId();
+        List<BookmarkResponse> response = tenantService.getAllBookmarks(tenantId);
         return ResponseEntity.ok(response);
     }
 }

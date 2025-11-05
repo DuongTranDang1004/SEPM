@@ -1,17 +1,11 @@
 package org.example.Broomate.repository;
 
 import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
-import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.Broomate.model.Tenant;
-import org.example.Broomate.model.Match;
-import org.example.Broomate.model.Swipe;
-import org.example.Broomate.model.Conversation;
+import org.example.Broomate.model.*;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -231,6 +225,96 @@ public class TenantRepository {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error saving conversation", e);
             throw new RuntimeException("Failed to save conversation", e);
+        }
+    }
+    // Add to your existing TenantRepository class
+
+    /**
+     * Save a bookmark
+     */
+    public Bookmark saveBookmark(Bookmark bookmark) {
+        try {
+            DocumentReference docRef = firestore.collection("bookmarks").document(bookmark.getId());
+            docRef.set(bookmark).get();
+            log.info("Bookmark saved: {}", bookmark.getId());
+            return bookmark;
+        } catch (Exception e) {
+            log.error("Error saving bookmark: {}", bookmark.getId(), e);
+            throw new RuntimeException("Failed to save bookmark", e);
+        }
+    }
+
+    /**
+     * Find bookmark by tenant and room
+     */
+    public Optional<Bookmark> findBookmarkByTenantAndRoom(String tenantId, String roomId) {
+        try {
+            Query query = firestore.collection("bookmarks")
+                    .whereEqualTo("tenantId", tenantId)
+                    .whereEqualTo("roomId", roomId)
+                    .limit(1);
+
+            QuerySnapshot querySnapshot = query.get().get();
+
+            if (!querySnapshot.isEmpty()) {
+                DocumentSnapshot document = querySnapshot.getDocuments().get(0);
+                return Optional.of(document.toObject(Bookmark.class));
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            log.error("Error finding bookmark for tenant {} and room {}", tenantId, roomId, e);
+            throw new RuntimeException("Failed to find bookmark", e);
+        }
+    }
+
+    /**
+     * Find all bookmarks by tenant
+     */
+    public List<Bookmark> findBookmarksByTenantId(String tenantId) {
+        try {
+            Query query = firestore.collection("bookmarks")
+                    .whereEqualTo("tenantId", tenantId)
+                    .orderBy("createdAt", Query.Direction.DESCENDING);
+
+            QuerySnapshot querySnapshot = query.get().get();
+
+            return querySnapshot.getDocuments().stream()
+                    .map(doc -> doc.toObject(Bookmark.class))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error finding bookmarks for tenant: {}", tenantId, e);
+            throw new RuntimeException("Failed to retrieve bookmarks", e);
+        }
+    }
+
+    /**
+     * Delete bookmark
+     */
+    public void deleteBookmark(String bookmarkId) {
+        try {
+            firestore.collection("bookmarks").document(bookmarkId).delete().get();
+            log.info("Bookmark deleted: {}", bookmarkId);
+        } catch (Exception e) {
+            log.error("Error deleting bookmark: {}", bookmarkId, e);
+            throw new RuntimeException("Failed to delete bookmark", e);
+        }
+    }
+
+    /**
+     * Find room by ID (if not already in your repository)
+     */
+    public Optional<Room> findRoomById(String roomId) {
+        try {
+            DocumentReference docRef = firestore.collection("rooms").document(roomId);
+            DocumentSnapshot document = docRef.get().get();
+
+            if (document.exists()) {
+                return Optional.of(document.toObject(Room.class));
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            log.error("Error finding room by ID: {}", roomId, e);
+            throw new RuntimeException("Failed to retrieve room", e);
         }
     }
 }

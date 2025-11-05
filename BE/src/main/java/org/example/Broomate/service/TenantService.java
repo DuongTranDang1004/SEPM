@@ -5,16 +5,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.Broomate.dto.request.tenant.SwipeRequest;
 import org.example.Broomate.dto.request.tenant.UpdateTenantProfileRequest;
-import org.example.Broomate.dto.response.tenant.MatchResponse;
-import org.example.Broomate.dto.response.tenant.SwipeResponse;
-import org.example.Broomate.dto.response.tenant.TenantListResponse;
-import org.example.Broomate.dto.response.tenant.TenantProfileResponse;
-import org.example.Broomate.model.Conversation;
-import org.example.Broomate.model.Match;
-import org.example.Broomate.model.Swipe;
-import org.example.Broomate.model.Tenant;
+import org.example.Broomate.dto.response.tenant.*;
+import org.example.Broomate.model.*;
 import org.example.Broomate.repository.TenantRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -330,5 +325,120 @@ public class TenantService {
                 matchResponse,
                 "It's a match! You can now start chatting with " + targetTenant.getName() + "."
         );
+    }
+    // ========================================
+// BOOKMARK ROOM
+// ========================================
+    public BookmarkResponse bookmarkRoom(String tenantId, String roomId) {
+        log.info("Bookmarking room {} for tenant {}", roomId, tenantId);
+
+        // 1. Check if tenant exists
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Tenant not found with ID: " + tenantId
+                ));
+
+        // 2. Check if room exists
+        Room room = tenantRepository.findRoomById(roomId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Room not found with ID: " + roomId
+                ));
+
+        // 3. Check if already bookmarked
+        Optional<Bookmark> existingBookmark = tenantRepository.findBookmarkByTenantAndRoom(tenantId, roomId);
+        if (existingBookmark.isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Room already bookmarked"
+            );
+        }
+
+        // 4. Create bookmark
+        Bookmark bookmark = Bookmark.builder()
+                .id(UUID.randomUUID().toString())
+                .tenantId(tenantId)
+                .roomId(roomId)
+                .createdAt(Timestamp.now())
+                .updatedAt(Timestamp.now())
+                .build();
+
+        // 5. Save bookmark
+        Bookmark savedBookmark = tenantRepository.saveBookmark(bookmark);
+
+        log.info("Room bookmarked successfully: {}", roomId);
+
+        // Return without room details (lightweight response)
+        return BookmarkResponse.fromBookmark(savedBookmark);
+    }
+
+    // ========================================
+// UNBOOKMARK ROOM
+// ========================================
+    public void unbookmarkRoom(String tenantId, String roomId) {
+        log.info("Unbookmarking room {} for tenant {}", roomId, tenantId);
+
+        // 1. Find bookmark
+        Bookmark bookmark = tenantRepository.findBookmarkByTenantAndRoom(tenantId, roomId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Bookmark not found for this room"
+                ));
+
+        // 2. Verify ownership
+        if (!bookmark.getTenantId().equals(tenantId)) {
+            throw new AccessDeniedException("You don't have permission to remove this bookmark");
+        }
+
+        // 3. Delete bookmark
+        tenantRepository.deleteBookmark(bookmark.getId());
+
+        log.info("Room unbookmarked successfully: {}", roomId);
+    }
+
+    // ========================================
+// GET ALL BOOKMARKS
+// ========================================
+    public List<BookmarkResponse> getAllBookmarks(String tenantId) {
+        log.info("Getting all bookmarks for tenant: {}", tenantId);
+
+        // 1. Check if tenant exists
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Tenant not found with ID: " + tenantId
+                ));
+
+        // 2. Get all bookmarks
+        List<Bookmark> bookmarks = tenantRepository.findBookmarksByTenantId(tenantId);
+
+        // 3. Get room details for each bookmark
+        List<BookmarkResponse> responses = new ArrayList<>();
+
+        for (Bookmark bookmark : bookmarks) {
+            try {
+                Optional<Room> roomOpt = tenantRepository.findRoomById(bookmark.getRoomId());
+
+                if (roomOpt.isPresent()) {
+                    Room room = roomOpt.get();
+
+                    // Use method with room details
+                    BookmarkResponse response = BookmarkResponse.fromBookmarkWithRoom(bookmark, room);
+                    responses.add(response);
+                } else {
+                    // Room might have been deleted
+                    log.warn("Room not found for bookmark: {}", bookmark.getRoomId());
+                    // Optionally delete orphaned bookmark
+                    tenantRepository.deleteBookmark(bookmark.getId());
+                }
+            } catch (Exception e) {
+                log.error("Error fetching room details for bookmark: {}", bookmark.getId(), e);
+            }
+        }
+
+        log.info("Retrieved {} bookmarks for tenant: {}", responses.size(), tenantId);
+
+        return responses;
     }
 }

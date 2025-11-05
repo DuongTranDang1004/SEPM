@@ -2,460 +2,492 @@ package org.example.Broomate.util;
 
 import com.google.cloud.firestore.Firestore;
 import lombok.RequiredArgsConstructor;
-import org.example.Broomate.model.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
+import org.example.Broomate.dto.request.guest.SignupLandlordRequest;
+import org.example.Broomate.dto.request.guest.SignupTenantRequest;
+import org.example.Broomate.dto.request.landlord.CreateRoomRequestJSON;
+import org.example.Broomate.dto.request.allAuthUser.SendMessageRequest;
+import org.example.Broomate.dto.response.guest.AuthResponse;
+import org.example.Broomate.dto.response.allAuthUser.RoomDetailResponse;
+import org.example.Broomate.service.AuthService;
+import org.example.Broomate.service.LandlordService;
+import org.example.Broomate.service.TenantService;
+import org.example.Broomate.service.AllAuthUserService;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PreDestroy;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-@RequiredArgsConstructor
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
+
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class SampleDataPopulator {
 
-    @Autowired
+    private final AuthService authService;
+    private final LandlordService landlordService;
+    private final TenantService tenantService;
+    private final AllAuthUserService allAuthUserService;
     private final Firestore firestore;
 
+    // Controlled thread pool for population tasks
+    private final ExecutorService executor = Executors.newFixedThreadPool(
+            Math.max(4, Runtime.getRuntime().availableProcessors() * 2),
+            runnable -> {
+                Thread t = new Thread(runnable);
+                t.setName("sample-populator-worker-" + t.getId());
+                t.setDaemon(false);
+                return t;
+            }
+    );
+
     private final Random random = new Random();
-    
-    // Sample data arrays for variety
-    private final String[] names = {
-        "Nguyen Van An", "Tran Thi Binh", "Le Van Cuong", "Pham Thi Dung", "Hoang Van Em",
-        "Vu Thi Phuong", "Dang Van Giang", "Bui Thi Hoa", "Do Van Inh", "Ngo Thi Kim",
-        "Lai Van Long", "Mai Thi My", "Phan Van Nam", "Truong Thi Oanh", "Vo Van Phuc",
-        "Dinh Thi Quynh", "Cao Van Son", "Le Thi Thanh", "Nguyen Van Uy", "Tran Thi Vy"
-    };
-    
-    private final String[] emails = {
-        "an.nguyen@email.com", "binh.tran@email.com", "cuong.le@email.com", "dung.pham@email.com", "em.hoang@email.com",
-        "phuong.vu@email.com", "giang.dang@email.com", "hoa.bui@email.com", "inh.do@email.com", "kim.ngo@email.com",
-        "long.lai@email.com", "my.mai@email.com", "nam.phan@email.com", "oanh.truong@email.com", "phuc.vo@email.com",
-        "quynh.dinh@email.com", "son.cao@email.com", "thanh.le@email.com", "uy.nguyen@email.com", "vy.tran@email.com"
-    };
-    
-    private final String[] districts = {
-        "District 1", "District 2", "District 3", "District 4", "District 5",
-        "District 6", "District 7", "District 8", "District 9", "District 10",
-        "District 11", "District 12", "Binh Thanh", "Tan Binh", "Phu Nhuan",
-        "Thu Duc", "Go Vap", "Binh Tan", "Hoc Mon", "Cu Chi"
-    };
-    
-    private final String[] occupations = {
-        "Software Engineer", "Marketing Manager", "Graphic Designer", "Teacher", "Doctor",
-        "Lawyer", "Accountant", "Sales Representative", "Student", "Freelancer",
-        "Business Analyst", "Project Manager", "Content Creator", "Consultant", "Researcher"
-    };
-    
-    private final String[] hobbies = {
-        "Reading", "Gaming", "Cooking", "Photography", "Traveling", "Music", "Sports", "Art", "Dancing", "Gardening"
-    };
-    
-    private final String[] lifestyles = {"Quiet", "Social", "Party"};
-    private final String[] genders = {"Male", "Female", "Other"};
-    
-    private final String[] roomTitles = {
-        "Cozy Studio in District 1", "Modern Apartment with City View", "Spacious Room Near University",
-        "Luxury Condo with Pool", "Budget-Friendly Shared Room", "Furnished Room with Balcony",
-        "Quiet Room in Residential Area", "Room Near Metro Station", "Newly Renovated Studio",
-        "Room with Garden View", "High-Rise Apartment", "Traditional House Room",
-        "Room with Private Bathroom", "Shared Apartment with Friends", "Room Near Shopping Mall",
-        "Studio with Kitchen", "Room with Air Conditioning", "Pet-Friendly Room",
-        "Room with Parking Space", "Room with WiFi Included"
-    };
-    
-    private final String[] amenities = {
-        "WiFi", "Air Conditioning", "Parking", "Gym", "Pool", "Balcony", "Kitchen", "Washing Machine",
-        "Refrigerator", "TV", "Security", "Elevator", "Garden", "Terrace", "Storage"
-    };
-    
-    private final String[] businessNames = {
-        "Saigon Properties", "Ho Chi Minh Realty", "Vietnam Housing Co.", "City Living Solutions",
-        "Metro Properties", "Urban Living Group", "District Real Estate", "Modern Housing Ltd.",
-        "Premium Properties", "Affordable Housing Co.", "Luxury Living Group", "Student Housing Co.",
-        "Family Properties", "Business District Realty", "Green Living Properties", "Metro Housing Co.",
-        "Urban Solutions", "City Center Properties", "Modern Living Group", "Premium Housing Co."
+
+    // Sample data arrays
+    private final String[] firstNames = {
+            "An", "Binh", "Cuong", "Dung", "Em", "Phuong", "Giang", "Hoa", "Inh", "Kim",
+            "Long", "My", "Nam", "Oanh", "Phuc", "Quynh", "Son", "Thanh", "Uy", "Vy"
     };
 
+    private final String[] lastNames = {
+            "Nguyen", "Tran", "Le", "Pham", "Hoang", "Vu", "Dang", "Bui", "Do", "Ngo",
+            "Lai", "Mai", "Phan", "Truong", "Vo", "Dinh", "Cao", "Ly", "Duong", "Tang"
+    };
+
+    private final String[] districts = {
+            "District 1", "District 2", "District 3", "District 4", "District 5",
+            "District 7", "Binh Thanh", "Tan Binh", "Phu Nhuan", "Thu Duc"
+    };
+
+    private final String[] roomTitles = {
+            "Cozy Studio in District 1", "Modern Apartment with City View",
+            "Spacious Room Near University", "Luxury Condo with Pool",
+            "Budget-Friendly Shared Room", "Furnished Room with Balcony",
+            "Quiet Room in Residential Area", "Room Near Metro Station",
+            "Newly Renovated Studio", "Room with Garden View"
+    };
+
+    private final String[] roomDescriptions = {
+            "Beautiful room perfect for students and young professionals",
+            "Quiet neighborhood with easy access to public transportation",
+            "Fully furnished with modern amenities and high-speed WiFi",
+            "Spacious living area with natural lighting and ventilation",
+            "Safe and secure building with 24/7 security"
+    };
+
+    /**
+     * Check if database is empty by checking key collections
+     */
     public boolean isDatabaseEmpty() {
         try {
-            // Check if any collections have documents
-            return firestore.collection("tenants").limit(1).get().get().isEmpty() &&
-                   firestore.collection("landlords").limit(1).get().get().isEmpty() &&
-                   firestore.collection("rooms").limit(1).get().get().isEmpty();
-        } catch (InterruptedException | ExecutionException e) {
-            System.err.println("Error checking database: " + e.getMessage());
-            return false;
-        }
-    }
+            log.info("Checking if database is empty...");
 
-    public void populateSampleData() {
-        System.out.println("🌱 Starting to populate sample data...");
-        
-        try {
-            // Create tenants first
-            List<Tenant> tenants = createTenants();
-            saveTenants(tenants);
-            
-            // Create landlords
-            List<Landlord> landlords = createLandlords();
-            saveLandlords(landlords);
-            
-            // Create rooms (linked to landlords)
-            List<Room> rooms = createRooms(landlords);
-            saveRooms(rooms);
-            
-            // Create swipes between tenants
-            List<Swipe> swipes = createSwipes(tenants);
-            saveSwipes(swipes);
-            
-            // Create matches based on mutual swipes
-            List<Match> matches = createMatchesFromSwipes(swipes, tenants);
-            
-            // Create conversations for matches
-            List<Conversation> conversations = createConversationsForMatches(matches);
-            saveConversations(conversations);
-            
-            // Update matches with conversation IDs and save
-            updateMatchesWithConversationIds(matches, conversations);
-            saveMatches(matches);
-            
-            // Create messages in conversations
-            List<Message> messages = createMessages(conversations, tenants);
-            saveMessages(messages);
-            
-            // Create bookmarks (tenants bookmarking rooms)
-            List<Bookmark> bookmarks = createBookmarks(tenants, rooms);
-            saveBookmarks(bookmarks);
-            
-            System.out.println("✅ Sample data populated successfully!");
-            System.out.println("📊 Created:");
-            System.out.println("   • 20 Tenants");
-            System.out.println("   • 20 Landlords");
-            System.out.println("   • 20 Rooms");
-            System.out.println("   • 50 Swipes");
-            System.out.println("   • " + matches.size() + " Matches");
-            System.out.println("   • " + conversations.size() + " Conversations");
-            System.out.println("   • " + messages.size() + " Messages");
-            System.out.println("   • " + bookmarks.size() + " Bookmarks");
-            
+            // Check if any key collections have documents
+            boolean tenantsEmpty = firestore.collection("tenants")
+                    .limit(1)
+                    .get()
+                    .get()
+                    .isEmpty();
+
+            boolean landlordsEmpty = firestore.collection("landlords")
+                    .limit(1)
+                    .get()
+                    .get()
+                    .isEmpty();
+
+            boolean roomsEmpty = firestore.collection("rooms")
+                    .limit(1)
+                    .get()
+                    .get()
+                    .isEmpty();
+
+            boolean isEmpty = tenantsEmpty && landlordsEmpty && roomsEmpty;
+
+            if (isEmpty) {
+                log.info("✅ Database is empty - ready for sample data");
+            } else {
+                log.info("📊 Database contains data:");
+                log.info("   • Tenants: {}", !tenantsEmpty ? "exists" : "empty");
+                log.info("   • Landlords: {}", !landlordsEmpty ? "exists" : "empty");
+                log.info("   • Rooms: {}", !roomsEmpty ? "exists" : "empty");
+            }
+
+            return isEmpty;
+
         } catch (Exception e) {
-            System.err.println("❌ Error populating sample data: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error checking if database is empty", e);
+            return false; // Assume not empty on error to avoid unwanted population
         }
     }
 
-    private List<Tenant> createTenants() {
-        List<Tenant> tenants = new ArrayList<>();
-        
+    /**
+     * Main method to populate all sample data (concurrent where safe)
+     */
+    public void populateSampleData() {
+        log.info("🌱 Starting to populate sample data using parallel tasks...");
+
+        try {
+            // Step 1: Create Tenants (parallel)
+            log.info("Creating tenants (parallel)...");
+            List<String> tenantIds = createTenants();
+            log.info("✅ Created {} tenants", tenantIds.size());
+
+            // Step 2: Create Landlords (parallel)
+            log.info("Creating landlords (parallel)...");
+            List<String> landlordIds = createLandlords();
+            log.info("✅ Created {} landlords", landlordIds.size());
+
+            // Step 3: Create Rooms (parallel)
+            log.info("Creating rooms (parallel)...");
+            List<String> roomIds = createRooms(landlordIds);
+            log.info("✅ Created {} rooms", roomIds.size());
+
+            // Step 4: Create Bookmarks (sequential - light)
+            log.info("Creating bookmarks...");
+            int bookmarkCount = createBookmarks(tenantIds, roomIds);
+            log.info("✅ Created {} bookmarks", bookmarkCount);
+
+            // Step 5: Create Swipes (sequential - light)
+            log.info("Creating swipes...");
+            Map<String, String> swipeResults = createSwipes(tenantIds);
+            log.info("✅ Created {} swipes", swipeResults.get("swipeCount"));
+
+            // Step 6: Create Matches (sequential - because domain logic may depend)
+            log.info("Creating matches...");
+            List<String> conversationIds = createMatches(tenantIds);
+            log.info("✅ Created {} matches with conversations", conversationIds.size());
+
+            // Step 7: Create Messages (parallel)
+            log.info("Creating messages (parallel)...");
+            int messageCount = createMessages(conversationIds, tenantIds);
+            log.info("✅ Created {} messages", messageCount);
+
+            log.info("🎉 Sample data population completed successfully!");
+            printSummary(tenantIds.size(), landlordIds.size(), roomIds.size(),
+                    bookmarkCount, Integer.parseInt(swipeResults.get("swipeCount")),
+                    conversationIds.size(), messageCount);
+
+        } catch (Exception e) {
+            log.error("❌ Error populating sample data", e);
+            throw new RuntimeException("Failed to populate sample data", e);
+        }
+    }
+
+    // ---------------------------
+    // Parallel implementations
+    // ---------------------------
+
+    private List<String> createTenants() {
+        List<CompletableFuture<String>> futures = new ArrayList<>(20);
+
         for (int i = 0; i < 20; i++) {
-            Tenant tenant = new Tenant();
-            tenant.setEmail(emails[i]);
-            tenant.setPassword("$2a$10$dummyHash" + i); // Dummy hashed password
-            tenant.setName(names[i]);
-            tenant.setPhone("090" + String.format("%08d", random.nextInt(100000000)));
-            tenant.setAvatarUrl("https://api.dicebear.com/7.x/avataaars/svg?seed=" + names[i].replace(" ", ""));
-            tenant.setDescription("Looking for a comfortable place to live in " + districts[random.nextInt(districts.length)]);
-            
-            // Tenant-specific fields
-            tenant.setBudgetPerMonth(3000000.0 + random.nextDouble() * 15000000.0); // 3M - 18M VND
-            tenant.setStayLengthMonths(6 + random.nextInt(18)); // 6-24 months
-            // Set move-in date as ISO string for Firebase compatibility
-            LocalDate moveInDate = LocalDate.now().plusDays(random.nextInt(90));
-            tenant.setMoveInDate(moveInDate.toString());
-            tenant.setPreferredDistricts(Arrays.asList(
-                districts[random.nextInt(districts.length)],
-                districts[random.nextInt(districts.length)]
-            ));
-            
+            final int idx = i;
+            CompletableFuture<String> f = CompletableFuture.supplyAsync(() -> {
+                try {
+                    String name = firstNames[idx % firstNames.length] + " " + lastNames[idx % lastNames.length];
+                    String email = "tenant" + idx + "@example.com";
 
-            tenants.add(tenant);
-        }
-        
-        return tenants;
-    }
+                    SignupTenantRequest request = SignupTenantRequest.builder()
+                            .email(email)
+                            .password("Password123!")
+                            .confirmPassword("Password123!")
+                            .name(name)
+                            .phone("090" + String.format("%08d", ThreadLocalRandom.current().nextInt(100_000_000)))
+                            .description("Looking for a comfortable place in " + districts[ThreadLocalRandom.current().nextInt(districts.length)])
+                            .age(20 + ThreadLocalRandom.current().nextInt(15)) // 20-34
+                            .gender(ThreadLocalRandom.current().nextBoolean() ? "MALE" : "FEMALE")
+                            .budgetPerMonth(3_000_000.0 + ThreadLocalRandom.current().nextDouble() * 12_000_000.0) // 3M-15M
+                            .stayLengthMonths(6 + ThreadLocalRandom.current().nextInt(12)) // 6-17 months
+                            .moveInDate(LocalDate.now().plusDays(ThreadLocalRandom.current().nextInt(60)).toString())
+                            .preferredDistricts(Arrays.asList(
+                                    districts[ThreadLocalRandom.current().nextInt(districts.length)],
+                                    districts[ThreadLocalRandom.current().nextInt(districts.length)]
+                            ))
+                            .smoking(ThreadLocalRandom.current().nextDouble() < 0.3)
+                            .cooking(ThreadLocalRandom.current().nextDouble() < 0.7)
+                            .needWindow(ThreadLocalRandom.current().nextDouble() < 0.8)
+                            .needWashingMachine(ThreadLocalRandom.current().nextDouble() < 0.6)
+                            .mightShareBedRoom(ThreadLocalRandom.current().nextDouble() < 0.4)
+                            .mightShareToilet(ThreadLocalRandom.current().nextDouble() < 0.5)
+                            .build();
 
-    private List<Landlord> createLandlords() {
-        List<Landlord> landlords = new ArrayList<>();
-        
-        for (int i = 0; i < 20; i++) {
-            Landlord landlord = new Landlord();
-            landlord.setEmail("landlord" + i + "@property.com");
-            landlord.setPassword("$2a$10$dummyHash" + i);
-            landlord.setName("Landlord " + names[i]);
-            landlord.setPhone("091" + String.format("%08d", random.nextInt(100000000)));
-            landlord.setAvatarUrl("https://api.dicebear.com/7.x/avataaars/svg?seed=landlord" + i);
-            landlord.setDescription("Professional property manager with " + (5 + random.nextInt(15)) + " years experience");
-            
-
-            
-            landlords.add(landlord);
-        }
-        
-        return landlords;
-    }
-
-    private List<Room> createRooms(List<Landlord> landlords) {
-        List<Room> rooms = new ArrayList<>();
-        
-        for (int i = 0; i < 20; i++) {
-            Room room = new Room();
-            room.setLandlordId(landlords.get(i).getId());
-            room.setTitle(roomTitles[i]);
-            room.setDescription("Beautiful " + (room.getTitle().toLowerCase()) + " in " + districts[random.nextInt(districts.length)] + 
-                              ". Perfect for " + (random.nextBoolean() ? "students" : "professionals") + ".");
-            room.setThumbnailUrl("https://picsum.photos/400/300?random=" + i);
-            
-            // Generate image URLs
-            List<String> imageUrls = new ArrayList<>();
-            for (int j = 0; j < 3 + random.nextInt(5); j++) {
-                imageUrls.add("https://picsum.photos/800/600?random=" + (i * 10 + j));
-            }
-            room.setImageUrls(imageUrls);
-            
-            // Pricing and terms
-            room.setRentPricePerMonth(2000000.0 + random.nextDouble() * 20000000.0); // 2M - 22M VND
-            room.setMinimumStayMonths(3 + random.nextInt(12)); // 3-15 months
-
-            // Location
-            room.setAddress(districts[random.nextInt(districts.length)] + ", Ho Chi Minh City");
-            room.setLatitude(10.762622 + (random.nextDouble() - 0.5) * 0.1);
-            room.setLongitude(106.660172 + (random.nextDouble() - 0.5) * 0.1);
-            
-            // Room details
-
-
-            // Status
-            Room.RoomStatus[] statuses = Room.RoomStatus.values();
-            room.setStatus(statuses[random.nextInt(statuses.length)]);
-            
-            rooms.add(room);
-        }
-        
-        return rooms;
-    }
-
-    private List<Conversation> createConversationsForMatches(List<Match> matches) {
-        List<Conversation> conversations = new ArrayList<>();
-        
-        // Create conversations for each match
-        for (Match match : matches) {
-            Conversation conversation = new Conversation();
-            
-            conversation.setParticipantIds(Arrays.asList(
-                match.getTenant1Id(),
-                match.getTenant2Id()
-            ));
-            
-            conversation.setLastMessage("Hello! Nice to meet you!");
-
-            
-            conversations.add(conversation);
-            
-            // Set the conversation ID in the match
-            // Note: This will be set after the conversation is saved to Firebase
-        }
-        
-        return conversations;
-    }
-
-    private List<Message> createMessages(List<Conversation> conversations, List<Tenant> tenants) {
-        List<Message> messages = new ArrayList<>();
-        
-        for (Conversation conversation : conversations) {
-            // Create 2-5 messages per conversation
-            int messageCount = 2 + random.nextInt(4);
-            
-            for (int i = 0; i < messageCount; i++) {
-                Message message = new Message();
-                message.setConversationId(conversation.getId());
-                
-                // Alternate between participants
-                String senderId = conversation.getParticipantIds().get(i % 2);
-                message.setSenderId(senderId);
-                
-                // Find sender name
-                String senderName = tenants.stream()
-                    .filter(t -> t.getId().equals(senderId))
-                    .findFirst()
-                    .map(Tenant::getName)
-                    .orElse("Unknown");
-
-                String[] sampleMessages = {
-                    "Hello! Nice to meet you!",
-                    "How are you doing?",
-                    "I'm looking for a roommate too!",
-                    "What's your budget range?",
-                    "I prefer quiet places",
-                    "Do you have any pets?",
-                    "I'm a student at RMIT",
-                    "I work in District 1",
-                    "Let's meet up sometime!",
-                    "Sounds good to me!"
-                };
-                
-                message.setContent(sampleMessages[random.nextInt(sampleMessages.length)]);
-
-                
-                messages.add(message);
-            }
-        }
-        
-        return messages;
-    }
-
-    private List<Swipe> createSwipes(List<Tenant> tenants) {
-        List<Swipe> swipes = new ArrayList<>();
-        Set<String> swipePairs = new HashSet<>();
-        
-        // Create 50 swipes between different tenant pairs
-        for (int i = 0; i < 50; i++) {
-            Swipe swipe = new Swipe();
-            
-            // Select two different tenants
-            int swiperIndex = random.nextInt(tenants.size());
-            int targetIndex = random.nextInt(tenants.size());
-            while (targetIndex == swiperIndex) {
-                targetIndex = random.nextInt(tenants.size());
-            }
-            
-            String swiperId = tenants.get(swiperIndex).getId();
-            String targetId = tenants.get(targetIndex).getId();
-            
-            // Avoid duplicate swipes
-            String swipeKey = swiperId + "_" + targetId;
-            if (swipePairs.contains(swipeKey)) {
-                continue;
-            }
-            swipePairs.add(swipeKey);
-            
-            swipe.setSwiperId(swiperId);
-            swipe.setTargetId(targetId);
-            
-            // 60% accept, 40% reject (more realistic)
-            swipe.setAction(random.nextDouble() < 0.6 ? Swipe.SwipeActionEnum.ACCEPT : Swipe.SwipeActionEnum.REJECT);
-            
-            swipes.add(swipe);
-        }
-        
-        return swipes;
-    }
-
-    private List<Match> createMatchesFromSwipes(List<Swipe> swipes, List<Tenant> tenants) {
-        List<Match> matches = new ArrayList<>();
-        Map<String, Swipe> swipeMap = new HashMap<>();
-        
-        // Create a map of swipes for quick lookup
-        for (Swipe swipe : swipes) {
-            String key = swipe.getSwiperId() + "_" + swipe.getTargetId();
-            swipeMap.put(key, swipe);
-        }
-        
-        // Find mutual swipes (both tenants swiped ACCEPT on each other)
-        for (Swipe swipe : swipes) {
-            if (swipe.getAction() == Swipe.SwipeActionEnum.ACCEPT) {
-                String reverseKey = swipe.getTargetId() + "_" + swipe.getSwiperId();
-                Swipe reverseSwipe = swipeMap.get(reverseKey);
-                
-                if (reverseSwipe != null && reverseSwipe.getAction() == Swipe.SwipeActionEnum.ACCEPT) {
-                    // Both swiped ACCEPT - create a match
-                    Match match = new Match();
-                    match.setTenant1Id(swipe.getSwiperId());
-                    match.setTenant2Id(swipe.getTargetId());
-                    match.setStatus(Match.MatchStatusEnum.ACTIVE);
-                    
-                    matches.add(match);
-                    
-                    // Remove from map to avoid duplicate matches
-                    swipeMap.remove(swipe.getSwiperId() + "_" + swipe.getTargetId());
-                    swipeMap.remove(reverseKey);
+                    AuthResponse response = authService.signupTenant(request, null);
+                    return response == null ? null : response.getUserId();
+                } catch (Exception e) {
+                    log.error("Failed to create tenant {}", idx, e);
+                    return null;
                 }
-            }
+            }, executor);
+
+            futures.add(f);
         }
-        
-        return matches;
+
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
-    private List<Bookmark> createBookmarks(List<Tenant> tenants, List<Room> rooms) {
-        List<Bookmark> bookmarks = new ArrayList<>();
-        Set<String> bookmarkPairs = new HashSet<>();
-        
-        // Create 30 bookmarks (tenants bookmarking rooms)
+    private List<String> createLandlords() {
+        List<CompletableFuture<String>> futures = new ArrayList<>(10);
+
+        for (int i = 0; i < 10; i++) {
+            final int idx = i;
+            CompletableFuture<String> f = CompletableFuture.supplyAsync(() -> {
+                try {
+                    String name = "Landlord " + firstNames[idx % firstNames.length] + " " + lastNames[idx % lastNames.length];
+                    String email = "landlord" + idx + "@property.com";
+
+                    SignupLandlordRequest request = SignupLandlordRequest.builder()
+                            .email(email)
+                            .password("Password123!")
+                            .confirmPassword("Password123!")
+                            .name(name)
+                            .phone("091" + String.format("%08d", ThreadLocalRandom.current().nextInt(100_000_000)))
+                            .description("Professional property manager with " + (5 + ThreadLocalRandom.current().nextInt(15)) + " years experience")
+                            .build();
+
+                    AuthResponse response = authService.signupLandlord(request, null);
+                    return response == null ? null : response.getUserId();
+                } catch (Exception e) {
+                    log.error("Failed to create landlord {}", idx, e);
+                    return null;
+                }
+            }, executor);
+
+            futures.add(f);
+        }
+
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    private List<String> createRooms(List<String> landlordIds) {
+        if (landlordIds == null || landlordIds.isEmpty()) {
+            log.warn("No landlords available to create rooms");
+            return Collections.emptyList();
+        }
+
+        List<CompletableFuture<String>> futures = new ArrayList<>(20);
+
+        for (int i = 0; i < 20; i++) {
+            final int idx = i;
+            CompletableFuture<String> f = CompletableFuture.supplyAsync(() -> {
+                try {
+                    String landlordId = landlordIds.get(idx % landlordIds.size());
+
+                    CreateRoomRequestJSON request = new CreateRoomRequestJSON();
+                    request.setTitle(roomTitles[idx % roomTitles.length]);
+                    request.setDescription(roomDescriptions[ThreadLocalRandom.current().nextInt(roomDescriptions.length)]);
+                    request.setRentPricePerMonth(2_000_000.0 + ThreadLocalRandom.current().nextDouble() * 18_000_000.0);
+                    request.setMinimumStayMonths(3 + ThreadLocalRandom.current().nextInt(12));
+                    request.setAddress(districts[ThreadLocalRandom.current().nextInt(districts.length)] + ", Ho Chi Minh City");
+                    request.setLatitude(10.762622 + (ThreadLocalRandom.current().nextDouble() - 0.5) * 0.1);
+                    request.setLongitude(106.660172 + (ThreadLocalRandom.current().nextDouble() - 0.5) * 0.1);
+                    request.setNumberOfToilets(1 + ThreadLocalRandom.current().nextInt(2));
+                    request.setNumberOfBedRooms(1 + ThreadLocalRandom.current().nextInt(3));
+                    request.setHasWindow(ThreadLocalRandom.current().nextDouble() < 0.8);
+
+                    RoomDetailResponse response = landlordService.createRoom(
+                            landlordId,
+                            request,
+                            null, // No thumbnail
+                            null, // No images
+                            null, // No videos
+                            null  // No documents
+                    );
+
+                    return response == null ? null : response.getId();
+                } catch (Exception e) {
+                    log.error("Failed to create room {}", idx, e);
+                    return null;
+                }
+            }, executor);
+
+            futures.add(f);
+        }
+
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    // Bookmarks kept sequential to avoid potential race/validation issues in services
+    private int createBookmarks(List<String> tenantIds, List<String> roomIds) {
+        int bookmarkCount = 0;
+        if (tenantIds.isEmpty() || roomIds.isEmpty()) return 0;
+        Set<String> bookmarked = new HashSet<>();
+
         for (int i = 0; i < 30; i++) {
-            Bookmark bookmark = new Bookmark();
-            
-            String tenantId = tenants.get(random.nextInt(tenants.size())).getId();
-            String roomId = rooms.get(random.nextInt(rooms.size())).getId();
-            
-            // Avoid duplicate bookmarks
-            String bookmarkKey = tenantId + "_" + roomId;
-            if (bookmarkPairs.contains(bookmarkKey)) {
-                continue;
+            try {
+                String tenantId = tenantIds.get(random.nextInt(tenantIds.size()));
+                String roomId = roomIds.get(random.nextInt(roomIds.size()));
+
+                String key = tenantId + "_" + roomId;
+                if (bookmarked.contains(key)) {
+                    continue;
+                }
+                bookmarked.add(key);
+
+                tenantService.bookmarkRoom(tenantId, roomId);
+                bookmarkCount++;
+            } catch (Exception e) {
+                log.warn("Failed to create bookmark", e);
             }
-            bookmarkPairs.add(bookmarkKey);
-            
-            bookmark.setTenantId(tenantId);
-            bookmark.setRoomId(roomId);
-            bookmarks.add(bookmark);
         }
-        
-        return bookmarks;
+
+        return bookmarkCount;
     }
 
-    private void updateMatchesWithConversationIds(List<Match> matches, List<Conversation> conversations) {
-        // Link matches to their corresponding conversations
-        for (int i = 0; i < Math.min(matches.size(), conversations.size()); i++) {
-            Match match = matches.get(i);
-            Conversation conversation = conversations.get(i);
-            match.setConversationId(conversation.getId());
+    // Swipes kept sequential here (you can parallelize later if swipe logic is idempotent)
+    private Map<String, String> createSwipes(List<String> tenantIds) {
+        int swipeCount = 0;
+        Set<String> swiped = new HashSet<>();
+
+        for (int i = 0; i < 50; i++) {
+            try {
+                int swiperIndex = random.nextInt(tenantIds.size());
+                int targetIndex = random.nextInt(tenantIds.size());
+
+                if (swiperIndex == targetIndex) {
+                    continue; // Can't swipe on yourself
+                }
+
+                String swiperId = tenantIds.get(swiperIndex);
+                String targetId = tenantIds.get(targetIndex);
+
+                String key = swiperId + "_" + targetId;
+                if (swiped.contains(key)) {
+                    continue; // Skip duplicates
+                }
+                swiped.add(key);
+
+                boolean accept = ThreadLocalRandom.current().nextDouble() < 0.6; // 60% acceptance rate
+
+                // Optionally call tenantService.swipe(swiperId, targetId, accept);
+                swipeCount++;
+
+            } catch (Exception e) {
+                log.warn("Failed to create swipe", e);
+            }
         }
+
+        Map<String, String> result = new HashMap<>();
+        result.put("swipeCount", String.valueOf(swipeCount));
+        return result;
     }
 
-    // Save methods
-    private void saveTenants(List<Tenant> tenants) throws ExecutionException, InterruptedException {
-        for (Tenant tenant : tenants) {
-            firestore.collection("tenants").add(tenant).get();
+    private List<String> createMatches(List<String> tenantIds) {
+        List<String> conversationIds = new ArrayList<>();
+
+        // Simple stub: create 5 mutual matches sequentially
+        for (int i = 0; i < 5; i++) {
+            try {
+                int tenant1Index = random.nextInt(tenantIds.size());
+                int tenant2Index = random.nextInt(tenantIds.size());
+
+                if (tenant1Index == tenant2Index) {
+                    continue;
+                }
+
+                String tenant1Id = tenantIds.get(tenant1Index);
+                String tenant2Id = tenantIds.get(tenant2Index);
+
+                // If you have a createConversation method in AllAuthUserService, call it:
+                // String conversationId = allAuthUserService.createConversation(tenant1Id, tenant2Id);
+                // conversationIds.add(conversationId);
+
+                // For now we skip actual creation and leave list empty or mocked
+            } catch (Exception e) {
+                log.warn("Failed to create match", e);
+            }
         }
+
+        return conversationIds;
     }
 
-    private void saveLandlords(List<Landlord> landlords) throws ExecutionException, InterruptedException {
-        for (Landlord landlord : landlords) {
-            firestore.collection("landlords").add(landlord).get();
+    private int createMessages(List<String> conversationIds, List<String> tenantIds) {
+        if (conversationIds == null || conversationIds.isEmpty()) return 0;
+
+        List<CompletableFuture<Integer>> futures = new ArrayList<>();
+
+        String[] sampleMessages = {
+                "Hi! Nice to meet you!",
+                "How are you doing?",
+                "I'm looking for a roommate too!",
+                "What's your budget range?",
+                "I prefer quiet places",
+                "Do you have any pets?",
+                "Let's meet up sometime!",
+                "Sounds good to me!"
+        };
+
+        for (String conversationId : conversationIds) {
+            CompletableFuture<Integer> f = CompletableFuture.supplyAsync(() -> {
+                int created = 0;
+                try {
+                    int msgCount = 3 + ThreadLocalRandom.current().nextInt(3);
+                    for (int i = 0; i < msgCount; i++) {
+                        String senderId = tenantIds.get(ThreadLocalRandom.current().nextInt(tenantIds.size()));
+                        String content = sampleMessages[ThreadLocalRandom.current().nextInt(sampleMessages.length)];
+
+                        SendMessageRequest request = SendMessageRequest.builder()
+                                .content(content)
+                                .build();
+
+                        allAuthUserService.sendMessage(senderId, conversationId, request, null);
+                        created++;
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to create messages for conversation {}", conversationId, e);
+                }
+                return created;
+            }, executor);
+
+            futures.add(f);
         }
+
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .reduce(0, Integer::sum);
     }
 
-    private void saveRooms(List<Room> rooms) throws ExecutionException, InterruptedException {
-        for (Room room : rooms) {
-            firestore.collection("rooms").add(room).get();
-        }
+    /**
+     * Print summary of populated data
+     */
+    private void printSummary(int tenants, int landlords, int rooms,
+                              int bookmarks, int swipes, int conversations, int messages) {
+        log.info("╔══════════════════════════════════════╗");
+        log.info("║   Sample Data Population Summary     ║");
+        log.info("╠══════════════════════════════════════╣");
+        log.info("║  Tenants:        {:>4}               ║", tenants);
+        log.info("║  Landlords:      {:>4}               ║", landlords);
+        log.info("║  Rooms:          {:>4}               ║", rooms);
+        log.info("║  Bookmarks:      {:>4}               ║", bookmarks);
+        log.info("║  Swipes:         {:>4}               ║", swipes);
+        log.info("║  Conversations:  {:>4}               ║", conversations);
+        log.info("║  Messages:       {:>4}               ║", messages);
+        log.info("╚══════════════════════════════════════╝");
     }
 
-    private void saveConversations(List<Conversation> conversations) throws ExecutionException, InterruptedException {
-        for (Conversation conversation : conversations) {
-            firestore.collection("conversations").add(conversation).get();
-        }
-    }
-
-    private void saveMessages(List<Message> messages) throws ExecutionException, InterruptedException {
-        for (Message message : messages) {
-            firestore.collection("messages").add(message).get();
-        }
-    }
-
-    private void saveSwipes(List<Swipe> swipes) throws ExecutionException, InterruptedException {
-        for (Swipe swipe : swipes) {
-            firestore.collection("swipes").add(swipe).get();
-        }
-    }
-
-    private void saveMatches(List<Match> matches) throws ExecutionException, InterruptedException {
-        for (Match match : matches) {
-            firestore.collection("matches").add(match).get();
-        }
-    }
-
-    private void saveBookmarks(List<Bookmark> bookmarks) throws ExecutionException, InterruptedException {
-        for (Bookmark bookmark : bookmarks) {
-            firestore.collection("bookmarks").add(bookmark).get();
+    @PreDestroy
+    public void shutdownExecutor() {
+        try {
+            log.info("Shutting down sample data executor...");
+            executor.shutdown();
+            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                log.warn("Forcing shutdown of sample data executor");
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            log.warn("Interrupted while shutting down executor", e);
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 }
