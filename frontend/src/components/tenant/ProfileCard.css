@@ -1,0 +1,90 @@
+/* ----------------------------------------------------
+   1. Root Container (The entire card)
+   ---------------------------------------------------- */
+.profile-card-root {
+    /* For swiping purposes */
+    width: 350px; 
+    height: 550px;
+    
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Smooth shadow */
+    
+    /* Style for background */
+    background-size: cover;
+    background-position: center;
+    background-color: #FFE5EA; /* Default color */
+    
+    /* For placing inner properties */
+    position: relative; 
+    overflow: hidden; /* Prevents overflow */
+    
+    display: flex;
+    flex-direction: column; /* Vertical Align */
+    justify-content: flex-end; /* Put content downwards */
+}
+
+/* ----------------------------------------------------
+   2. Info Overlay (Name, Badges, Report Button)
+   ---------------------------------------------------- */
+.card-info-overlay {
+    /* Puts info overlay on the bottom */
+    width: 100%;
+    padding: 20px;
+    
+    /* Enters gradient */
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 100%);
+    
+    color: black; /* Black text */
+    z-index: 10;
+}
+
+.card-name-age {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.card-gender {
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
+/* ----------------------------------------------------
+   3. Badges and Report Action
+   ---------------------------------------------------- */
+.card-badges-container {
+    display: flex;
+    flex-wrap: wrap; /* Allows new line for many badges */
+    gap: 8px; /* Badge padding */
+    margin-bottom: 20px;
+}
+
+.card-report-action {
+    /* Report buttons (just in case) */
+    text-align: right; 
+    padding-top: 10px;
+    /* Customization of .btn-ghost inside card-report-action might be needed */
+}
+
+/* ----------------------------------------------------
+   4. Swipe Action Buttons (Bookmark/Ignore)
+   ---------------------------------------------------- */
+.card-swipe-actions {
+    position: absolute; /* Indipendently existant on the bottom center */
+    bottom: -30px; /* Hides itself under the cards */
+    left: 50%;
+    transform: translateX(-50%); /* Horizontal center fix */
+    
+    display: flex;
+    gap: 30px;
+    padding: 20px 0;
+    z-index: 20;
+}
+
+/* button alters (optional) */
+.card-swipe-actions .btn-icon-only {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Shadow for buttons */
+}
