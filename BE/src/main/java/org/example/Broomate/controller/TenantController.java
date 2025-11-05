@@ -187,7 +187,7 @@ public class TenantController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Get tenant profile")
+    @Operation(summary = "Get another tenant profile details for swiping")
     @GetMapping("/profile/{tenantId}")
     public ResponseEntity<TenantProfileResponse> getTenantProfile(
             @Parameter(description = "Tenant ID", required = true)
