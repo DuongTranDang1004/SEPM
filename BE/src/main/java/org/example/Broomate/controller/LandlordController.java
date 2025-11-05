@@ -254,14 +254,53 @@ public class LandlordController {
     // LANDLORD PROFILE
     // ========================================
 
-    @Operation(summary = "Update landlord profile")
-    @PutMapping("/profile")
+    // ========================================
+// UPDATE LANDLORD PROFILE (WITH AVATAR)
+// ========================================
+    @Operation(
+            summary = "Update landlord profile with avatar",
+            description = "Update landlord information and avatar in a single request"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile updated successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = LandlordProfileResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LandlordProfileResponse> updateProfile(
-            @Valid @RequestBody UpdateLandlordProfileRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @Parameter(description = "Landlord name", required = true, example = "John Smith")
+            @RequestParam String name,
+
+            @Parameter(description = "Phone number", example = "0901234567")
+            @RequestParam(required = false) String phone,
+
+            @Parameter(description = "Profile description", example = "Experienced landlord with 10+ properties")
+            @RequestParam(required = false) String description,
+
+            @Parameter(description = "Set to true to remove current avatar")
+            @RequestParam(required = false, defaultValue = "false") Boolean removeAvatar,
+
+            @Parameter(description = "New avatar image (replaces existing if provided)")
+            @RequestPart(value = "avatar", required = false) MultipartFile avatar,
+
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) throws IOException {
 
         String landlordId = userDetails.getUserId();
-        LandlordProfileResponse response = landlordService.updateProfile(landlordId, request);
+
+        // Build request object
+        UpdateLandlordProfileRequest request = UpdateLandlordProfileRequest.builder()
+                .name(name)
+                .phone(phone)
+                .description(description)
+                .removeAvatar(removeAvatar)
+                .build();
+
+        LandlordProfileResponse response = landlordService.updateProfile(landlordId, request, avatar);
         return ResponseEntity.ok(response);
     }
 

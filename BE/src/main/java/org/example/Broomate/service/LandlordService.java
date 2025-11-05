@@ -336,9 +336,13 @@ public class LandlordService {
     }
 
     // ========================================
-    // UPDATE LANDLORD PROFILE
-    // ========================================
-    public LandlordProfileResponse updateProfile(String landlordId, UpdateLandlordProfileRequest request) {
+// UPDATE LANDLORD PROFILE (WITH AVATAR)
+// ========================================
+    public LandlordProfileResponse updateProfile(
+            String landlordId,
+            UpdateLandlordProfileRequest request,
+            MultipartFile avatar) throws IOException {
+
         log.info("Updating landlord profile for ID: {}", landlordId);
 
         Landlord landlord = landlordRepository.findById(landlordId)
@@ -347,19 +351,59 @@ public class LandlordService {
                         "Landlord not found with ID: " + landlordId
                 ));
 
-        landlord.setName(request.getName());
-        landlord.setPhone(request.getPhone());
-        landlord.setAvatarUrl(request.getAvatarUrl());
-        landlord.setDescription(request.getDescription());
-        landlord.setUpdatedAt(Timestamp.now());
+        String oldAvatarUrl = landlord.getAvatarUrl();
+        String newAvatarUrl = oldAvatarUrl;
 
-        Landlord updatedLandlord = landlordRepository.update(landlordId, landlord);
+        try {
+            // Handle avatar update
+            if (request.getRemoveAvatar() != null && request.getRemoveAvatar()) {
+                // User wants to remove avatar
+                if (oldAvatarUrl != null) {
+                    fileStorageService.deleteFile(oldAvatarUrl);
+                    log.info("Removed avatar for landlord {}", landlordId);
+                }
+                newAvatarUrl = null;
+            } else if (avatar != null && !avatar.isEmpty()) {
+                // User is uploading a new avatar
+                // Delete old avatar if exists
+                if (oldAvatarUrl != null) {
+                    fileStorageService.deleteFile(oldAvatarUrl);
+                    log.info("Deleted old avatar for landlord {}", landlordId);
+                }
 
-        log.info("Landlord profile updated successfully: {}", landlordId);
+                // Upload new avatar
+                newAvatarUrl = fileStorageService.uploadFile(avatar, "avatars");
+                log.info("Uploaded new avatar for landlord {}: {}", landlordId, newAvatarUrl);
+            }
 
-        return LandlordProfileResponse.fromLandlord(updatedLandlord);
+            // Update profile info
+            landlord.setName(request.getName());
+            landlord.setPhone(request.getPhone());
+            landlord.setAvatarUrl(newAvatarUrl);
+            landlord.setDescription(request.getDescription());
+            landlord.setUpdatedAt(Timestamp.now());
+
+            Landlord updatedLandlord = landlordRepository.update(landlordId, landlord);
+
+            log.info("Landlord profile updated successfully: {}", landlordId);
+
+            return LandlordProfileResponse.fromLandlord(updatedLandlord);
+
+        } catch (Exception e) {
+            log.error("Failed to update landlord profile: {}", landlordId, e);
+
+            // Rollback: If we uploaded a new avatar but profile update failed, delete it
+            if (newAvatarUrl != null && !newAvatarUrl.equals(oldAvatarUrl)) {
+                fileStorageService.deleteFile(newAvatarUrl);
+                log.info("Rolled back new avatar upload due to profile update failure");
+            }
+
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to update profile: " + e.getMessage()
+            );
+        }
     }
-
     // ========================================
     // GET LANDLORD PROFILE
     // ========================================

@@ -116,12 +116,16 @@ public class TenantService {
     }
 
     // ========================================
-    // SCENARIO 2: UPDATE PROFILE (NORMAL FIELDS ONLY)
-    // ========================================
+// UPDATE TENANT PROFILE (WITH AVATAR)
+// ========================================
     /**
-     * Update tenant profile (no avatar)
+     * Update tenant profile with avatar
      */
-    public TenantProfileResponse updateTenantProfile(String tenantId, UpdateTenantProfileRequest request) {
+    public TenantProfileResponse updateTenantProfile(
+            String tenantId,
+            UpdateTenantProfileRequest request,
+            MultipartFile avatar) throws IOException {
+
         log.info("Updating tenant profile for ID: {}", tenantId);
 
         // 1. Get existing tenant
@@ -131,97 +135,73 @@ public class TenantService {
                         "Tenant not found with ID: " + tenantId
                 ));
 
-        // 2. Update normal fields (no avatar)
-        tenant.setName(request.getName());
-        tenant.setDescription(request.getDescription());
-        tenant.setBudgetPerMonth(request.getBudgetPerMonth());
-        tenant.setStayLengthMonths(request.getStayLength());
-        tenant.setMoveInDate(request.getMoveInDate());
-        tenant.setPreferredDistricts(request.getPreferredLocations());
-        tenant.setPhone(request.getPhone());
-        tenant.setAge(request.getAge());
-        tenant.setGender(request.getGender());
-        tenant.setSmoking(request.isSmoking());
-        tenant.setCooking(request.isCooking());
-        tenant.setNeedWindow(request.isNeedWindow());
-        tenant.setMightShareBedRoom(request.isMightShareBedRoom());
-        tenant.setMightShareToilet(request.isMightShareToilet());
-        tenant.setUpdatedAt(Timestamp.now());
+        String oldAvatarUrl = tenant.getAvatarUrl();
+        String newAvatarUrl = oldAvatarUrl;
 
-        // 3. Save updated tenant
-        Tenant updatedTenant = tenantRepository.update(tenantId, tenant);
+        try {
+            // 2. Handle avatar update
+            if (request.getRemoveAvatar() != null && request.getRemoveAvatar()) {
+                // User wants to remove avatar
+                if (oldAvatarUrl != null) {
+                    fileStorageService.deleteFile(oldAvatarUrl);
+                    log.info("Removed avatar for tenant {}", tenantId);
+                }
+                newAvatarUrl = null;
+            } else if (avatar != null && !avatar.isEmpty()) {
+                // User is uploading a new avatar
+                // Delete old avatar if exists
+                if (oldAvatarUrl != null) {
+                    fileStorageService.deleteFile(oldAvatarUrl);
+                    log.info("Deleted old avatar for tenant {}", tenantId);
+                }
 
-        log.info("Tenant profile updated successfully for ID: {}", tenantId);
+                // Upload new avatar
+                newAvatarUrl = fileStorageService.uploadFile(avatar, "avatars");
+                log.info("Uploaded new avatar for tenant {}: {}", tenantId, newAvatarUrl);
+            }
 
-        return TenantProfileResponse.fromTenant(updatedTenant);
-    }
-
-    // ========================================
-    // SCENARIO 2: UPDATE/ADD AVATAR
-    // ========================================
-    /**
-     * Update or add tenant avatar
-     */
-    public TenantProfileResponse updateAvatar(String tenantId, MultipartFile avatar, boolean replace) throws IOException {
-        log.info("Updating avatar for tenant: {}", tenantId);
-
-        // 1. Get existing tenant
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Tenant not found with ID: " + tenantId
-                ));
-
-        // 2. Delete old avatar if replacing
-        if (replace && tenant.getAvatarUrl() != null) {
-            fileStorageService.deleteFile(tenant.getAvatarUrl());
-            log.info("Old avatar deleted");
-        }
-
-        // 3. Upload new avatar
-        String newAvatarUrl = fileStorageService.uploadFile(avatar, "avatars");
-        tenant.setAvatarUrl(newAvatarUrl);
-        tenant.setUpdatedAt(Timestamp.now());
-
-        // 4. Save updated tenant
-        Tenant updatedTenant = tenantRepository.update(tenantId, tenant);
-
-        log.info("Avatar updated successfully for tenant: {}", tenantId);
-
-        return TenantProfileResponse.fromTenant(updatedTenant);
-    }
-
-    // ========================================
-    // SCENARIO 3: DELETE AVATAR
-    // ========================================
-    /**
-     * Delete tenant avatar
-     */
-    public TenantProfileResponse deleteAvatar(String tenantId) {
-        log.info("Deleting avatar for tenant: {}", tenantId);
-
-        // 1. Get existing tenant
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Tenant not found with ID: " + tenantId
-                ));
-
-        // 2. Delete avatar from Firebase Storage
-        if (tenant.getAvatarUrl() != null) {
-            fileStorageService.deleteFile(tenant.getAvatarUrl());
-            tenant.setAvatarUrl(null);
+            // 3. Update profile fields
+            tenant.setName(request.getName());
+            tenant.setAvatarUrl(newAvatarUrl);
+            tenant.setDescription(request.getDescription());
+            tenant.setBudgetPerMonth(request.getBudgetPerMonth());
+            tenant.setStayLengthMonths(request.getStayLength());
+            tenant.setMoveInDate(request.getMoveInDate());
+            tenant.setPreferredDistricts(request.getPreferredLocations());
+            tenant.setPhone(request.getPhone());
+            tenant.setAge(request.getAge());
+            tenant.setGender(Tenant.GenderEnum.valueOf(request.getGender()));
+            tenant.setSmoking(request.isSmoking());
+            tenant.setCooking(request.isCooking());
+            tenant.setNeedWindow(request.isNeedWindow());
+            tenant.setMightShareBedRoom(request.isMightShareBedRoom());
+            tenant.setMightShareToilet(request.isMightShareToilet());
             tenant.setUpdatedAt(Timestamp.now());
 
-            // 3. Save updated tenant
-            tenant = tenantRepository.update(tenantId, tenant);
-            log.info("Avatar deleted successfully for tenant: {}", tenantId);
-        } else {
-            log.info("No avatar to delete for tenant: {}", tenantId);
-        }
+            // 4. Save updated tenant
+            Tenant updatedTenant = tenantRepository.update(tenantId, tenant);
 
-        return TenantProfileResponse.fromTenant(tenant);
+            log.info("Tenant profile updated successfully for ID: {}", tenantId);
+
+            return TenantProfileResponse.fromTenant(updatedTenant);
+
+        } catch (Exception e) {
+            log.error("Failed to update tenant profile: {}", tenantId, e);
+
+            // Rollback: If we uploaded a new avatar but profile update failed, delete it
+            if (newAvatarUrl != null && !newAvatarUrl.equals(oldAvatarUrl)) {
+                fileStorageService.deleteFile(newAvatarUrl);
+                log.info("Rolled back new avatar upload due to profile update failure");
+            }
+
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to update tenant profile: " + e.getMessage()
+            );
+        }
     }
+
+
 
     // ========================================
     // SWIPE LOGIC
