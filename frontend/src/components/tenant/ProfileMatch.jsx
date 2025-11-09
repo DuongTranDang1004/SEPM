@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 // Importing resuable component
-import Button from '../../components/common/Button';     
-import Icon from '../../components/common/Icon';
-import ProfileCard from '../../components/tenant/ProfileCard';
+import Button from '@/components/common/Button';     
+import Icon from '@/components/common/Icon';
+import ProfileCard from '@/components/tenant/ProfileCard';
 
 import './ProfileMatch.css'; 
 import { mockMatchCandidates } from '../../../data/MockData'; // Placeholder for mock data, used only for testing

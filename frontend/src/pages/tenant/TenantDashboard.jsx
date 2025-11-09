@@ -6,10 +6,10 @@ import React, { useState } from 'react';
 // ----------------------------------------------------
 import InputField from '../../components/common/Input';
 import Button from '../../components/common/Button';     
-import ListingCard from '../../components/room/RoomCard';
+import RoomCard from '../../components/room/RoomCard';
 
 import './TenantDashboard.css'; 
-import { mockRoomData } from '../../../data/MockData'; // Assuming usage of temporary data
+import { mockRoomData } from '../../data/MockData'; // Assuming usage of temporary data
 
 /*** 
  Tenant Dashboard Component
@@ -23,7 +23,7 @@ const TenantDashboard = () => {
     };
 
     const handleSearchSubmit = () => {
-        // 실제 API 호출 로직이 들어갈 곳입니다.
+        // Enter actual API calls here
         console.log(`Searching for: ${searchTerm}`);
     };
     
@@ -75,7 +75,7 @@ const TenantDashboard = () => {
                 <div className="listing-grid">
                     {/* Render room data with RoomCard component */}
                     {mockRoomData.map((room) => (
-                        <ListingCard
+                        <RoomCard
                             key={room.id}
                             room_data={room}
                             is_bookmarked={room.isBookmarked}

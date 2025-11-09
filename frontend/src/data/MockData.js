@@ -34,3 +34,18 @@ export const mockMatchCandidates = [
         compatibility: { score: "90%", reason: "Same budget, similar cooking habits, and both prefer quiet evenings." }
     },
 ];
+
+export const mockRoomData = [
+  {
+    id: 1,
+    title: "Room 1",
+    price: 1000,
+    // ...
+  },
+  {
+    id: 2,
+    title: "Room 2",
+    price: 800,
+    // ...
+  }
+];

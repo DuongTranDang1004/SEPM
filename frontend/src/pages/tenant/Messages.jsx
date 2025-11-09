@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 // Importing reusable components (Might need to alter according to file status/route)
-import InputField from '../../components/common/InputField'; 
+import Input from '../../components/common/Input'; 
 import Button from '../../components/common/Button';     
 import ChatBubble from '../../components/message/MessageBubble';
 import Avatar from '../../components/common/Avatar'; // Need to make
@@ -83,7 +83,7 @@ const Messages = ({ matchId }) => { // Recognize chat room with matchId as Props
 
             {/* C. Input Area (메시지 입력) */}
             <footer className="message-input-footer">
-                <InputField
+                <Input
                     type="text"
                     value={inputMessage}
                     onChange={handleInputChange}
