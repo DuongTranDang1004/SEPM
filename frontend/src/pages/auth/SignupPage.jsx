@@ -75,7 +75,7 @@ function SignupPage() {
               <div className="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mb-4">
                 <span className="text-3xl">👥</span>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">For Tenants</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">As Tenant</h3>
               <p className="text-gray-600 mb-4">
                 I'm looking for a place to stay and want to find compatible roommates
               </p>
@@ -95,7 +95,7 @@ function SignupPage() {
               <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mb-4">
                 <span className="text-3xl">🏠</span>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">For Landlords</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">As Landlord</h3>
               <p className="text-gray-600 mb-4">
                 I have rooms to rent out and want to find quality tenants
               </p>
