@@ -1,0 +1,59 @@
+/* ========================================================= */
+/* 1. Horizontal Layout: Sidebar and Main Content를 horizontally aligned */
+/* ========================================================= */
+
+.main-layout-flex-container {
+    display: flex; 
+    flex-direction: row; 
+    min-height: calc(100vh - 60px); /* Assuming Navbar height is 60px */
+}
+
+.sidebar-placeholder {
+    width: 250px;
+    background-color: white;
+    position: fixed; 
+    height: 100vh;
+    top: 0;
+    left: 0;
+    flex-shrink: 0; /* Sidebar의 너비가 줄어들지 않도록 고정 */
+    padding: 20px 0;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+}
+
+/* ========================================================= */
+/* 2. Main contents layout - Vertical alignment of contents */
+/* ========================================================= */
+
+.content-area-vertical-flex {
+    display: flex; 
+    flex-direction: column; 
+    flex-grow: 1; 
+    padding: 40px;
+    background-color: #f4f4f4; 
+    margin-left: 250px; 
+}
+
+/* Search Card style */
+.search-card {
+    padding: 30px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    position: relative;
+    color: white;
+    width: 100%; 
+}
+
+.sidebar-nav ul {
+    list-style: none;
+    padding: 0;
+}
+.sidebar-nav li a {
+    text-decoration: none;
+    color: #555;
+    display: block;
+    padding: 10px 20px;
+    font-size: 14px;
+}
+.roommate-search-card { background-color: #ff8598; } /* 핑크 */
+.room-search-card { background-color: #4dd0e1; }     /* 청록 */

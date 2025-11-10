@@ -8,5 +8,5 @@ const Button = (props) => {
   );
 };
 
-// default export 합니다.
+// default export.
 export default Button;

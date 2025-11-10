@@ -41,7 +41,6 @@ const Messages = ({ matchId }) => { // Recognize chat room with matchId as Props
 
         setMessages([...messages, newMessage]);
         setInputMessage('');
-        // Use Websocket or API to send message to server
     };
     
     // 5. Enter to send

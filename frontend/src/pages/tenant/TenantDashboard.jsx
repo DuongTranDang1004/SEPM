@@ -1,92 +1,62 @@
-// your-project/src/pages/tenant/TenantDashboard.jsx
+import React from 'react';
+import './TenantDashboard.css'; // Import Separate CSS if required
 
-import React, { useState } from 'react';
-// ----------------------------------------------------
-// Import reusable component
-// ----------------------------------------------------
-import InputField from '../../components/common/Input';
-import Button from '../../components/common/Button';     
-import RoomCard from '../../components/room/RoomCard';
-
-import './TenantDashboard.css'; 
-import { mockRoomData } from '../../data/MockData'; // Assuming usage of temporary data
-
-/*** 
- Tenant Dashboard Component
- ***/
-const TenantDashboard = () => {
-    const [searchTerm, setSearchTerm] = useState('');
-
-    // Eventhandler for search
-    const handleSearchChange = (event) => {
-        setSearchTerm(event.target.value);
-    };
-
-    const handleSearchSubmit = () => {
-        // Enter actual API calls here
-        console.log(`Searching for: ${searchTerm}`);
-    };
-    
-    // Eventhandler for click routing
-    const handleCardClick = (roomId) => {
-        // Enter actual routing logic below.
-        console.log(`Navigating to Room Details for ID: ${roomId}`);
-    };
-
-    return (
-        <div className="tenant-dashboard-container">
-            {/* ---------------------------------------------------- */}
-            {/* A. Header / Main Search Area */}
-            {/* ---------------------------------------------------- */}
-            <header className="dashboard-search-header">
-                {/* 
-                Header can be made into component - currently making it onto the page.
-                */}
-                <h1>Find Your Next Home</h1>
-                
-                <div className="main-search-wrapper">
-                    <InputField
-                        type="text"
-                        value={searchTerm}
-                        onChange={handleSearchChange}
-                        placeholder="Location, Price Range, or Keywords..."
-                        variant="large-search" 
-                    />
-                    <Button 
-                        text="Search" 
-                        variant="primary" 
-                        icon_name="search" 
-                        onClick={handleSearchSubmit}
-                    />
-                </div>
-                
-                {/* Rooms Search filter bar Placeholder */}
-                <div className="filter-placeholder">
-                    {/* Where filters locate */}
-                    <p>Advanced Filters: Budget, Move-in Date, Preferences...</p>
-                </div>
-            </header>
-
-            {/* ---------------------------------------------------- */}
-            {/* B. Listing Grid for rooms */}
-            {/* ---------------------------------------------------- */}
-            <main className="listing-grid-section">
-                <h2>Recommended Listings ({mockRoomData.length} available)</h2>
-                <div className="listing-grid">
-                    {/* Render room data with RoomCard component */}
-                    {mockRoomData.map((room) => (
-                        <RoomCard
-                            key={room.id}
-                            room_data={room}
-                            is_bookmarked={room.isBookmarked}
-                            onToggleBookmark={() => console.log(`Bookmark toggled for room ${room.id}`)}
-                            onClickCard={() => handleCardClick(room.id)}
-                        />
-                    ))}
-                </div>
-            </main>
+/**
+ * TenantDashboard Component displays Broomate's primary dashboard
+ * composed of Sidebar and main search area
+ */
+function TenantDashboard() {
+  return (
+    // 'main-layout' class is a flex container with a Sidebar and Content Area.
+    <div className="main-layout">
+      
+      {/* 1. (Sidebar Placeholder) */}
+      <aside className="sidebar-placeholder">
+        <h2 className="logo-sidebar">Broomate</h2>
+        <nav className="sidebar-nav">
+          <ul>
+            {/* Roomate menu */}
+            <li><a href="#find-roommates">Find Roommates</a></li>
+            <li><a href="#bookmarks-roommates">Bookmarks</a></li>
+            <li><a href="#blocked">Blocked</a></li>
+            <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid #eee' }} />
+            {/* Room menu */}
+            <li><a href="#rooms">Rooms</a></li>
+            <li><a href="#find-rooms">Find Rooms</a></li>
+            <li><a href="#bookmarks-rooms">Bookmarks</a></li>
+            <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid #eee' }} />
+            {/* Extras */}
+            <li><a href="#chats">Chats</a></li>
+            <li><a href="#manage-chats">Manage Chats</a></li>
+          </ul>
+        </nav>
+        
+        <div className="sign-out-placeholder">
+          Sign Out
         </div>
-    );
-};
+      </aside>
+
+      {/* 2. Main content area */}
+      <main className="content-area-vertical-flex">
+        {/* The above cab be handled by App.js, 
+           but this part is left empty above content-area, or implements padding */}
+        
+        {/* Find roomate (Coral Color) */}
+        <section className="search-card roommate-search-card">
+          <h3>Looking for **Roommates**?</h3>
+          <p>Lorem ipsum dolor sit amet consectetur. Aliquet accumsan sed vestibulum vestibulum cras tempus.</p>
+          <button className="search-btn">Search 🔍</button>
+        </section>
+
+        {/* Find Rooms (Teal Color) */}
+        <section className="search-card room-search-card">
+          <h3>Looking for **Rooms**?</h3>
+          <p>Lorem ipsum dolor sit amet consectetur. Aliquet accumsan sed vestibulum vestibulum cras tempus.</p>
+          <button className="search-btn">Search 🔍</button>
+        </section>
+      </main>
+    </div>
+  );
+}
 
 export default TenantDashboard;
