@@ -5,16 +5,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.Broomate.dto.request.tenant.SwipeRequest;
 import org.example.Broomate.dto.request.tenant.UpdateTenantProfileRequest;
-import org.example.Broomate.dto.response.tenant.MatchResponse;
-import org.example.Broomate.dto.response.tenant.SwipeResponse;
-import org.example.Broomate.dto.response.tenant.TenantListResponse;
-import org.example.Broomate.dto.response.tenant.TenantProfileResponse;
-import org.example.Broomate.model.Conversation;
-import org.example.Broomate.model.Match;
-import org.example.Broomate.model.Swipe;
-import org.example.Broomate.model.Tenant;
+import org.example.Broomate.dto.response.tenant.*;
+import org.example.Broomate.model.*;
 import org.example.Broomate.repository.TenantRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -52,7 +47,7 @@ public class TenantService {
         // 2. Exclude current tenant
         List<Tenant> otherTenants = allTenants.stream()
                 .filter(tenant -> !tenant.getId().equals(currentTenantId))
-                .collect(Collectors.toList());
+                .toList();
 
         // 3. Get swipe history for current tenant
         List<Swipe> swipeHistory = tenantRepository.findSwipesBySwiperId(currentTenantId);
@@ -62,7 +57,7 @@ public class TenantService {
 
         // 5. Get IDs of recently rejected tenants (within last 10 minutes)
         Set<String> recentlyRejectedIds = swipeHistory.stream()
-                .filter(swipe -> "REJECT".equals(swipe.getAction()))
+                .filter(swipe -> false)
                 .filter(swipe -> swipe.getCreatedAt().toDate().toInstant().isAfter(tenMinutesAgo))
                 .map(Swipe::getTargetId)
                 .collect(Collectors.toSet());
@@ -116,12 +111,16 @@ public class TenantService {
     }
 
     // ========================================
-    // SCENARIO 2: UPDATE PROFILE (NORMAL FIELDS ONLY)
-    // ========================================
+// UPDATE TENANT PROFILE (WITH AVATAR)
+// ========================================
     /**
-     * Update tenant profile (no avatar)
+     * Update tenant profile with avatar
      */
-    public TenantProfileResponse updateTenantProfile(String tenantId, UpdateTenantProfileRequest request) {
+    public TenantProfileResponse updateTenantProfile(
+            String tenantId,
+            UpdateTenantProfileRequest request,
+            MultipartFile avatar) throws IOException {
+
         log.info("Updating tenant profile for ID: {}", tenantId);
 
         // 1. Get existing tenant
@@ -131,97 +130,73 @@ public class TenantService {
                         "Tenant not found with ID: " + tenantId
                 ));
 
-        // 2. Update normal fields (no avatar)
-        tenant.setName(request.getName());
-        tenant.setDescription(request.getDescription());
-        tenant.setBudgetPerMonth(request.getBudgetPerMonth());
-        tenant.setStayLengthMonths(request.getStayLength());
-        tenant.setMoveInDate(request.getMoveInDate());
-        tenant.setPreferredDistricts(request.getPreferredLocations());
-        tenant.setPhone(request.getPhone());
-        tenant.setAge(request.getAge());
-        tenant.setGender(request.getGender());
-        tenant.setSmoking(request.isSmoking());
-        tenant.setCooking(request.isCooking());
-        tenant.setNeedWindow(request.isNeedWindow());
-        tenant.setMightShareBedRoom(request.isMightShareBedRoom());
-        tenant.setMightShareToilet(request.isMightShareToilet());
-        tenant.setUpdatedAt(Timestamp.now());
+        String oldAvatarUrl = tenant.getAvatarUrl();
+        String newAvatarUrl = oldAvatarUrl;
 
-        // 3. Save updated tenant
-        Tenant updatedTenant = tenantRepository.update(tenantId, tenant);
+        try {
+            // 2. Handle avatar update
+            if (request.getRemoveAvatar() != null && request.getRemoveAvatar()) {
+                // User wants to remove avatar
+                if (oldAvatarUrl != null) {
+                    fileStorageService.deleteFile(oldAvatarUrl);
+                    log.info("Removed avatar for tenant {}", tenantId);
+                }
+                newAvatarUrl = null;
+            } else if (avatar != null && !avatar.isEmpty()) {
+                // User is uploading a new avatar
+                // Delete old avatar if exists
+                if (oldAvatarUrl != null) {
+                    fileStorageService.deleteFile(oldAvatarUrl);
+                    log.info("Deleted old avatar for tenant {}", tenantId);
+                }
 
-        log.info("Tenant profile updated successfully for ID: {}", tenantId);
+                // Upload new avatar
+                newAvatarUrl = fileStorageService.uploadFile(avatar, "avatars");
+                log.info("Uploaded new avatar for tenant {}: {}", tenantId, newAvatarUrl);
+            }
 
-        return TenantProfileResponse.fromTenant(updatedTenant);
-    }
-
-    // ========================================
-    // SCENARIO 2: UPDATE/ADD AVATAR
-    // ========================================
-    /**
-     * Update or add tenant avatar
-     */
-    public TenantProfileResponse updateAvatar(String tenantId, MultipartFile avatar, boolean replace) throws IOException {
-        log.info("Updating avatar for tenant: {}", tenantId);
-
-        // 1. Get existing tenant
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Tenant not found with ID: " + tenantId
-                ));
-
-        // 2. Delete old avatar if replacing
-        if (replace && tenant.getAvatarUrl() != null) {
-            fileStorageService.deleteFile(tenant.getAvatarUrl());
-            log.info("Old avatar deleted");
-        }
-
-        // 3. Upload new avatar
-        String newAvatarUrl = fileStorageService.uploadFile(avatar, "avatars");
-        tenant.setAvatarUrl(newAvatarUrl);
-        tenant.setUpdatedAt(Timestamp.now());
-
-        // 4. Save updated tenant
-        Tenant updatedTenant = tenantRepository.update(tenantId, tenant);
-
-        log.info("Avatar updated successfully for tenant: {}", tenantId);
-
-        return TenantProfileResponse.fromTenant(updatedTenant);
-    }
-
-    // ========================================
-    // SCENARIO 3: DELETE AVATAR
-    // ========================================
-    /**
-     * Delete tenant avatar
-     */
-    public TenantProfileResponse deleteAvatar(String tenantId) {
-        log.info("Deleting avatar for tenant: {}", tenantId);
-
-        // 1. Get existing tenant
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Tenant not found with ID: " + tenantId
-                ));
-
-        // 2. Delete avatar from Firebase Storage
-        if (tenant.getAvatarUrl() != null) {
-            fileStorageService.deleteFile(tenant.getAvatarUrl());
-            tenant.setAvatarUrl(null);
+            // 3. Update profile fields
+            tenant.setName(request.getName());
+            tenant.setAvatarUrl(newAvatarUrl);
+            tenant.setDescription(request.getDescription());
+            tenant.setBudgetPerMonth(request.getBudgetPerMonth());
+            tenant.setStayLengthMonths(request.getStayLength());
+            tenant.setMoveInDate(request.getMoveInDate());
+            tenant.setPreferredDistricts(request.getPreferredLocations());
+            tenant.setPhone(request.getPhone());
+            tenant.setAge(request.getAge());
+            tenant.setGender(Tenant.GenderEnum.valueOf(request.getGender()));
+            tenant.setSmoking(request.isSmoking());
+            tenant.setCooking(request.isCooking());
+            tenant.setNeedWindow(request.isNeedWindow());
+            tenant.setMightShareBedRoom(request.isMightShareBedRoom());
+            tenant.setMightShareToilet(request.isMightShareToilet());
             tenant.setUpdatedAt(Timestamp.now());
 
-            // 3. Save updated tenant
-            tenant = tenantRepository.update(tenantId, tenant);
-            log.info("Avatar deleted successfully for tenant: {}", tenantId);
-        } else {
-            log.info("No avatar to delete for tenant: {}", tenantId);
-        }
+            // 4. Save updated tenant
+            Tenant updatedTenant = tenantRepository.update(tenantId, tenant);
 
-        return TenantProfileResponse.fromTenant(tenant);
+            log.info("Tenant profile updated successfully for ID: {}", tenantId);
+
+            return TenantProfileResponse.fromTenant(updatedTenant);
+
+        } catch (Exception e) {
+            log.error("Failed to update tenant profile: {}", tenantId, e);
+
+            // Rollback: If we uploaded a new avatar but profile update failed, delete it
+            if (newAvatarUrl != null && !newAvatarUrl.equals(oldAvatarUrl)) {
+                fileStorageService.deleteFile(newAvatarUrl);
+                log.info("Rolled back new avatar upload due to profile update failure");
+            }
+
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to update tenant profile: " + e.getMessage()
+            );
+        }
     }
+
+
 
     // ========================================
     // SWIPE LOGIC
@@ -350,5 +325,120 @@ public class TenantService {
                 matchResponse,
                 "It's a match! You can now start chatting with " + targetTenant.getName() + "."
         );
+    }
+    // ========================================
+// BOOKMARK ROOM
+// ========================================
+    public BookmarkResponse bookmarkRoom(String tenantId, String roomId) {
+        log.info("Bookmarking room {} for tenant {}", roomId, tenantId);
+
+        // 1. Check if tenant exists
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Tenant not found with ID: " + tenantId
+                ));
+
+        // 2. Check if room exists
+        Room room = tenantRepository.findRoomById(roomId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Room not found with ID: " + roomId
+                ));
+
+        // 3. Check if already bookmarked
+        Optional<Bookmark> existingBookmark = tenantRepository.findBookmarkByTenantAndRoom(tenantId, roomId);
+        if (existingBookmark.isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Room already bookmarked"
+            );
+        }
+
+        // 4. Create bookmark
+        Bookmark bookmark = Bookmark.builder()
+                .id(UUID.randomUUID().toString())
+                .tenantId(tenantId)
+                .roomId(roomId)
+                .createdAt(Timestamp.now())
+                .updatedAt(Timestamp.now())
+                .build();
+
+        // 5. Save bookmark
+        Bookmark savedBookmark = tenantRepository.saveBookmark(bookmark);
+
+        log.info("Room bookmarked successfully: {}", roomId);
+
+        // Return without room details (lightweight response)
+        return BookmarkResponse.fromBookmark(savedBookmark);
+    }
+
+    // ========================================
+// UNBOOKMARK ROOM
+// ========================================
+    public void unbookmarkRoom(String tenantId, String roomId) {
+        log.info("Unbookmarking room {} for tenant {}", roomId, tenantId);
+
+        // 1. Find bookmark
+        Bookmark bookmark = tenantRepository.findBookmarkByTenantAndRoom(tenantId, roomId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Bookmark not found for this room"
+                ));
+
+        // 2. Verify ownership
+        if (!bookmark.getTenantId().equals(tenantId)) {
+            throw new AccessDeniedException("You don't have permission to remove this bookmark");
+        }
+
+        // 3. Delete bookmark
+        tenantRepository.deleteBookmark(bookmark.getId());
+
+        log.info("Room unbookmarked successfully: {}", roomId);
+    }
+
+    // ========================================
+// GET ALL BOOKMARKS
+// ========================================
+    public List<BookmarkResponse> getAllBookmarks(String tenantId) {
+        log.info("Getting all bookmarks for tenant: {}", tenantId);
+
+        // 1. Check if tenant exists
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Tenant not found with ID: " + tenantId
+                ));
+
+        // 2. Get all bookmarks
+        List<Bookmark> bookmarks = tenantRepository.findBookmarksByTenantId(tenantId);
+
+        // 3. Get room details for each bookmark
+        List<BookmarkResponse> responses = new ArrayList<>();
+
+        for (Bookmark bookmark : bookmarks) {
+            try {
+                Optional<Room> roomOpt = tenantRepository.findRoomById(bookmark.getRoomId());
+
+                if (roomOpt.isPresent()) {
+                    Room room = roomOpt.get();
+
+                    // Use method with room details
+                    BookmarkResponse response = BookmarkResponse.fromBookmarkWithRoom(bookmark, room);
+                    responses.add(response);
+                } else {
+                    // Room might have been deleted
+                    log.warn("Room not found for bookmark: {}", bookmark.getRoomId());
+                    // Optionally delete orphaned bookmark
+                    tenantRepository.deleteBookmark(bookmark.getId());
+                }
+            } catch (Exception e) {
+                log.error("Error fetching room details for bookmark: {}", bookmark.getId(), e);
+            }
+        }
+
+        log.info("Retrieved {} bookmarks for tenant: {}", responses.size(), tenantId);
+
+        return responses;
     }
 }

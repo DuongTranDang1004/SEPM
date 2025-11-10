@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "Request to create a new room")
-public class CreateRoomRequest {
+public class CreateRoomRequestJSON {
 
     @NotBlank(message = "Title is required")
     @Schema(description = "Room title", example = "Cozy 2BR Apartment")
@@ -51,5 +51,5 @@ public class CreateRoomRequest {
 
     @NotNull(message = "Window information is required")
     @Schema(description = "Has window", example = "true")
-    private Boolean hasWindow;
+    private boolean hasWindow;
 }

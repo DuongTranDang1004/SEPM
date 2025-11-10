@@ -18,8 +18,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -33,6 +35,9 @@ public class AllAuthUserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private  FileStorageService fileStorageService;
+
 
     // ========================================
     // 1. GET ALL CONVERSATIONS
@@ -129,47 +134,103 @@ public class AllAuthUserService {
     }
 
     // ========================================
-    // 5. SEND MESSAGE
-    // ========================================
-    public MessageDetailResponse sendMessage(String userId, String conversationId, SendMessageRequest request) {
+    // 5. SEND MESSAGE WITH MEDIA
+
+// ========================================
+    public MessageDetailResponse sendMessage(
+            String userId,
+            String conversationId,
+            SendMessageRequest request,
+            MultipartFile media) throws IOException {
+
         log.info("Sending message in conversation: {} from user: {}", conversationId, userId);
 
-        // 1. Get conversation
-        Conversation conversation = repository.findConversationById(conversationId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Conversation not found with ID: " + conversationId
-                ));
+        String uploadedMediaUrl = null;
 
-        // 2. Verify user is a participant
-        if (!conversation.getParticipantIds().contains(userId)) {
-            throw new AccessDeniedException("You are not a participant in this conversation");
+        try {
+            // 1. Get conversation
+            Conversation conversation = repository.findConversationById(conversationId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Conversation not found with ID: " + conversationId
+                    ));
+
+            // 2. Verify user is a participant
+            if (!conversation.getParticipantIds().contains(userId)) {
+                throw new AccessDeniedException("You are not a participant in this conversation");
+            }
+
+            // 3. Upload media file if provided
+            if (media != null && !media.isEmpty()) {
+                // Determine folder based on file type
+                String folder = determineMediaFolder(media);
+                uploadedMediaUrl = fileStorageService.uploadFile(media, folder);
+                log.info("Media uploaded successfully: {}", uploadedMediaUrl);
+            }
+
+            // 4. Create message
+            List<String> mediaUrls = uploadedMediaUrl != null
+                    ? List.of(uploadedMediaUrl)
+                    : List.of();
+
+            Message message = Message.builder()
+                    .id(UUID.randomUUID().toString())
+                    .conversationId(conversationId)
+                    .senderId(userId)
+                    .content(request.getContent())
+                    .mediaUrls(mediaUrls)
+                    .readBy(List.of(userId))  // Sender has read it
+                    .createdAt(Timestamp.now())
+                    .updatedAt(Timestamp.now())
+                    .build();
+
+            // 5. Save message
+            repository.saveMessage(message);
+
+            // 6. Update conversation's last message
+            conversation.setLastMessage(request.getContent());
+            conversation.setLastMessageAt(Timestamp.now());
+            conversation.setUpdatedAt(Timestamp.now());
+            repository.updateConversation(conversationId, conversation);
+
+            log.info("Message sent successfully in conversation: {}", conversationId);
+
+            return MessageDetailResponse.fromMessage(message);
+
+        } catch (Exception e) {
+            // Rollback: Delete uploaded media if message sending fails
+            log.error("Failed to send message, rolling back uploaded media", e);
+            if (uploadedMediaUrl != null) {
+                fileStorageService.deleteFile(uploadedMediaUrl);
+            }
+
+            if (e instanceof ResponseStatusException || e instanceof AccessDeniedException) {
+                throw e;
+            }
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to send message: " + e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Determine the correct folder based on file type
+     */
+    private String determineMediaFolder(MultipartFile file) {
+        String contentType = file.getContentType();
+
+        if (contentType == null) {
+            return "documents"; // Default
         }
 
-        // 3. Create message
-        Message message = Message.builder()
-                .id(UUID.randomUUID().toString())
-                .conversationId(conversationId)
-                .senderId(userId)
-                .content(request.getContent())
-                .mediaUrls(request.getMediaUrls())
-                .readBy(List.of(userId))  // Sender has read it
-                .createdAt(Timestamp.now())
-                .updatedAt(Timestamp.now())
-                .build();
-
-        // 4. Save message
-        repository.saveMessage(message);
-
-        // 5. Update conversation's last message
-        conversation.setLastMessage(request.getContent());
-        conversation.setLastMessageAt(Timestamp.now());
-        conversation.setUpdatedAt(Timestamp.now());
-        repository.updateConversation(conversationId, conversation);
-
-        log.info("Message sent successfully in conversation: {}", conversationId);
-
-        return MessageDetailResponse.fromMessage(message);
+        if (contentType.startsWith("image/")) {
+            return "images";
+        } else if (contentType.startsWith("video/")) {
+            return "videos";
+        } else {
+            return "documents";
+        }
     }
 
     // ========================================
