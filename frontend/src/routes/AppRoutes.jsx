@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '../pages/auth/LoginPage';
 import SignupPage from '../pages/auth/SignupPage';
-
+import LandlordDashboard from '../pages/landlord/LandlordDashboard';
 function AppRoutes() {
   return (
     <Routes>
@@ -15,6 +15,7 @@ function AppRoutes() {
       
       {/* Catch all - redirect to login */}
       <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path = "landlord" element = {<LandlordDashboard />}/>
     </Routes>
   );
 }

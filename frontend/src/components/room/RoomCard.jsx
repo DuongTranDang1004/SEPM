@@ -1,98 +1,71 @@
-import React from 'react';
-import Button from '../common/Button';
-import Badge from '../common/Badge';
-import './RoomCard.css';
+import React from "react";
+import { Bookmark, BookmarkCheck } from "lucide-react"; // npm i lucide-react
+import "./RoomCard.css";
 
-function RoomCard({ 
-  roomData, 
-  isBookmarked, 
-  onToggleBookmark, 
-  onClickCard 
+// mapping landlord demo (đổi sang prop/API nếu bạn muốn)
+const landlordById = {
+  u1: { name: "User1", avatar: "🧑🏻‍💼" },
+  u2: { name: "User2", avatar: "👩🏻‍💼" },
+};
+
+function RoomCard({
+  room,
+  currency,
+  isBookmarked,
+  canBookmark,
+  onToggleBookmark,
 }) {
-  const {
-    budgetPerMonth,
-    preferredDistricts = [],
-    needWindow = false,
-    mightShareBedRoom = false,
-    mightShareToilet = false,
-    photoUrl = 'default-room.jpg'
-  } = roomData;
-  
-  const locationDisplay = preferredDistricts.length > 0
-    ? preferredDistricts.join(", ")
-    : "Various Districts";
-    
-  const priceDisplay = typeof budgetPerMonth === 'number'
-    ? `$${budgetPerMonth.toLocaleString()}/month`
-    : "Price N/A";
-  
-  const featureBadges = [];
-  
-  if (needWindow) {
-    featureBadges.push(
-      <Badge 
-        key="window"
-        text="Window Req." 
-        variant="success" 
-        iconName="window" 
-      />
-    );
-  }
-  
-  if (mightShareBedRoom) {
-    featureBadges.push(
-      <Badge 
-        key="bedroom"
-        text="Share Room OK" 
-        variant="info" 
-        iconName="users" 
-      />
-    );
-  }
-  
-  if (mightShareToilet) {
-    featureBadges.push(
-      <Badge 
-        key="toilet"
-        text="Share Bath OK" 
-        variant="info" 
-        iconName="toilet" 
-      />
-    );
-  }
-  
+  const landlord = landlordById[room.landlordUserId] || { name: "Unknown", avatar: "🏠" };
+
+  // an toàn kiểu dữ liệu
+  const priceNum = Number(room?.pricePerMonth);
+  const priceLabel = Number.isFinite(priceNum) ? currency(priceNum) : "N/A";
+
   return (
-    <div 
-      className="listing-card-root"
-      onClick={onClickCard}
-      style={{ cursor: "pointer" }}
-    >
-      <div 
-        className="card-photo-area"
-        style={{ backgroundImage: `url('${photoUrl}')` }}
-      >
-        <div className="bookmark-button-wrapper">
-          <Button
-            variant="ghost"
-            iconName="bookmark"
-            isIconOnly={true}
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleBookmark();
-            }}
-          />
-        </div>
+    <article className="bm-room-card" aria-label={`Room card ${room?.title || ""}`}>
+      {/* Media left */}
+      <div className="bm-room-media">
+        <img
+          src={room?.imgUrl || "https://picsum.photos/640/480"}
+          alt={`${room?.title || "Room"} photo`}
+          loading="lazy"
+        />
       </div>
-      
-      <div className="card-info-area">
-        <h3 className="card-price">{priceDisplay}</h3>
-        <p className="card-location">{locationDisplay}</p>
-        <div className="card-badges-container">
-          {featureBadges}
-        </div>
+
+      {/* Content right */}
+      <div className="bm-room-content">
+        <h3 className="bm-room-title">{room?.title || "Room"}</h3>
+        <ul className="bm-room-facts">
+          <li><span className="k">Address:</span> {room?.address || "—"}</li>
+          <li><span className="k">Min. Month of Stay:</span> {room?.minStayMonths ?? "—"}</li>
+          <li><span className="k">Price per month:</span> {priceLabel}</li>
+          <li className="bm-landlord">
+            <span className="k">Landlord:</span>
+            <span className="avatar">{landlord.avatar}</span>
+            {landlord.name}
+          </li>
+        </ul>
       </div>
-    </div>
+
+      {/* Bookmark ở góc phải */}
+      {canBookmark && (
+        <button
+          className="bm-bookmark"
+          aria-pressed={isBookmarked}
+          aria-label={isBookmarked ? "Remove bookmark" : "Bookmark"}
+          title={isBookmarked ? "Remove bookmark" : "Bookmark"}
+          onClick={() => onToggleBookmark(room.id)}
+        >
+          <div className="bm-bookmark-box">
+            {isBookmarked ? (
+              <BookmarkCheck size={22} strokeWidth={2.25} />
+            ) : (
+              <Bookmark size={22} strokeWidth={2.25} />
+            )}
+          </div>
+        </button>
+      )}
+    </article>
   );
 }
 

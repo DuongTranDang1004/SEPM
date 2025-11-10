@@ -1,60 +1,101 @@
-.listing-card-root {
-    width: 300px; /* Standard card width for a grid layout */
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    overflow: hidden; 
-    background-color: white;
-    transition: transform 0.2s, box-shadow 0.2s;
+/* Card nền cyan bo góc lớn giống mock */
+.bm-room-card {
+  --card-bg: #47cfdb;
+  --card-radius: 22px;
+  --shadow: 0 2px 10px rgba(0,0,0,.06);
+
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto; /* media | content | bookmark */
+  gap: clamp(12px, 2vw, 24px);
+  background: var(--card-bg);
+  border-radius: var(--card-radius);
+  padding: clamp(14px, 2.2vw, 20px);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
-.listing-card-root:hover {
-    transform: translateY(-3px); 
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+/* Ảnh bên trái */
+.bm-room-media img {
+  width: clamp(220px, 28vw, 280px);
+  height: clamp(150px, 18vw, 180px);
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  display: block;
 }
 
-/* ----------------------------------------------------
-   1. Photo Area (Image and Bookmark)
-   ---------------------------------------------------- */
-.card-photo-area {
-    height: 200px; 
-    background-size: cover;
-    background-position: center;
-    position: relative; 
+/* Nội dung bên phải */
+.bm-room-content {
+  align-self: center;
+  min-width: 0;
 }
 
-.bookmark-button-wrapper {
+.bm-room-title {
+  margin: 0 0 8px 0;
+  font-size: clamp(18px, 2.2vw, 24px);
+  font-weight: 800;
+  color: #0b2430;
+}
+
+.bm-room-facts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  color: #1f2937;
+  font-size: clamp(14px, 1.8vw, 18px);
+  display: grid;
+  gap: 6px;
+}
+
+.bm-room-facts .k {
+  font-weight: 600;
+  margin-right: 6px;
+  color: #0f172a;
+}
+
+.bm-landlord {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bm-landlord .avatar { font-size: 20px; }
+
+/* Bookmark góc phải kiểu ô vuông nền nhạt viền đậm */
+.bm-bookmark {
+  align-self: end;
+  justify-self: end;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.bm-bookmark-box {
+  width: 56px;
+  height: 56px;
+  background: #d7f6fb;      /* gần với ô vuông nhạt trong mock */
+  border: 4px solid #0f172a; /* viền đậm */
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .06s ease, filter .12s ease;
+}
+.bm-bookmark:hover .bm-bookmark-box { filter: brightness(.98); transform: translateY(-1px); }
+.bm-bookmark:active .bm-bookmark-box { transform: translateY(0); }
+
+/* Mobile: xếp dọc, bookmark chuyển tuyệt đối bottom-right */
+@media (max-width: 720px) {
+  .bm-room-card {
+    grid-template-columns: 1fr;
+  }
+  .bm-room-media img {
+    width: 100%;
+    height: clamp(160px, 40vw, 220px);
+  }
+  .bm-bookmark {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    /* Add a semi-transparent background for better visibility on dark photos */
-    background-color: rgba(255, 255, 255, 0.8); 
-    border-radius: 50%;
-    padding: 2px;
-}
-
-/* ----------------------------------------------------
-   2. Info Area (Price, Location, Badges)
-   ---------------------------------------------------- */
-.card-info-area {
-    padding: 15px;
-}
-
-.card-price {
-    font-size: 20px;
-    font-weight: 700;
-    color: #007bff; 
-    margin: 0 0 5px 0; /* Remove default margins and set bottom margin */
-}
-
-.card-location {
-    font-size: 14px;
-    color: #6c757d;
-    margin: 0 0 10px 0;
-}
-
-.card-badges-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px; 
-    margin-top: 10px;
+    right: 12px;
+    bottom: 12px;
+  }
 }
