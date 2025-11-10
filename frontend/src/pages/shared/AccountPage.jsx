@@ -84,7 +84,7 @@ function AccountPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-teal-50 py-8 px-4">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-pink-50 via-white to-teal-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">

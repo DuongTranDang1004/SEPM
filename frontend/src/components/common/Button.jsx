@@ -1,63 +1,42 @@
 import React from 'react';
-import Icon from './Icon';
-import './Button.css';
 
 function Button({ 
-  variant, 
-  text = "", 
-  size = "large", 
-  onClick = null, 
-  iconName = null, 
-  isIconOnly = false 
+  children, 
+  variant = 'primary', 
+  size = 'md', 
+  onClick, 
+  disabled = false,
+  type = 'button',
+  className = '',
+  ...props 
 }) {
-  const classNames = ["btn"];
+  const baseStyles = 'font-semibold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2';
   
-  // Add variant class
-  if (["tenant", "landlord", "ghost"].includes(variant)) {
-    classNames.push(`btn-${variant}`);
-  } else {
-    classNames.push("btn-tenant");
-  }
+  const variants = {
+    primary: 'bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700 focus:ring-teal-500 shadow-md hover:shadow-lg',
+    secondary: 'bg-gradient-to-r from-pink-500 to-pink-600 text-white hover:from-pink-600 hover:to-pink-700 focus:ring-pink-500 shadow-md hover:shadow-lg',
+    danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500',
+    outline: 'border-2 border-teal-500 text-teal-600 hover:bg-teal-50 focus:ring-teal-500',
+    ghost: 'text-gray-600 hover:bg-gray-100 focus:ring-gray-400'
+  };
   
-  // Add size class
-  classNames.push(size === "small" ? "btn-small" : "btn-large");
+  const sizes = {
+    sm: 'px-3 py-1.5 text-sm',
+    md: 'px-6 py-2.5',
+    lg: 'px-8 py-3 text-lg'
+  };
   
-  // Add icon-only class
-  if (isIconOnly) {
-    classNames.push("btn-icon-only");
-  }
-  
-  const finalClass = classNames.join(" ");
-  
-  // Determine icon properties
-  const iconColor = variant === "tenant" ? "black" : "black";
-  const iconSize = size === "small" ? "small" : "medium";
-  
-  // Build button content
-  const buttonContent = [];
-  
-  if (iconName) {
-    buttonContent.push(
-      <Icon 
-        key="icon"
-        name={iconName} 
-        size={iconSize} 
-        color={iconColor} 
-      />
-    );
-    
-    if (!isIconOnly && text) {
-      buttonContent.push(<span key="spacer" style={{ marginLeft: "8px" }} />);
-    }
-  }
-  
-  if (!isIconOnly) {
-    buttonContent.push(<span key="text">{text || "Action"}</span>);
-  }
+  const disabledStyles = disabled ? 'opacity-50 cursor-not-allowed' : 'transform hover:scale-105';
   
   return (
-    <button className={finalClass} onClick={onClick}>
-      {buttonContent}
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${disabledStyles} ${className}`}
+      {...props}
+    >
+      {children}
     </button>
   );
 }

@@ -143,7 +143,7 @@ function MessagePage() {
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-pink-50 via-white to-teal-50">
+    <div className="flex h-full bg-gradient-to-br from-pink-50 via-white to-teal-50">
       {/* Conversation List Sidebar */}
       <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}
