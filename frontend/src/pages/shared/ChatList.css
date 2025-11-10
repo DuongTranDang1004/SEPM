@@ -1,0 +1,127 @@
+.chat-filter-header {
+    display: flex;
+    justify-content: flex-start; 
+    align-items: center;
+    background-color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 800px; 
+    gap: 20px; 
+}
+
+.chat-filter-header .filter-dropdown {
+    display: flex;
+    flex-direction: column; 
+    align-items: flex-start;
+    font-size: 14px;
+}
+
+.chat-filter-header .filter-dropdown label {
+    color: #555;
+    margin-bottom: 3px;
+    font-weight: normal;
+}
+
+.chat-filter-header .sort-button {
+    background-color: #ff69b4;
+    color: white;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    margin-left: auto; 
+}
+
+.chat-listings {
+    width: 100%;
+    max-width: 800px;
+}
+
+.chat-list-item {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    color: #333;
+    padding: 15px 20px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.chat-list-item:hover {
+    background-color: #f0f0f0;
+}
+
+.chat-list-avatars {
+    display: flex;
+    position: relative;
+    width: 60px;
+    height: 60px;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+
+.chat-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid white;
+    position: absolute;
+}
+
+.chat-list-avatars .chat-avatar:first-child {
+    top: 0;
+    left: 0;
+    z-index: 2;
+}
+
+.chat-list-avatars .chat-avatar:nth-child(2) {
+    bottom: 0;
+    right: 0;
+    z-index: 1;
+}
+
+.chat-list-details {
+    flex-grow: 1;
+}
+
+.chat-list-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.chat-name {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.unread-count {
+    background-color: #ff69b4;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 50%;
+    padding: 2px 6px;
+    min-width: 12px;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.last-message {
+    font-size: 14px;
+    color: #555;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
