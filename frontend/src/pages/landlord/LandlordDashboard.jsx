@@ -67,58 +67,50 @@ const currency = (n) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
 
 export default function LandlordDashboard() {
-  const isTenant = currentUser.role === "tenant";
+    const isTenant = currentUser.role === "tenant";
 
-  // bookmarks by room id
-  const [bookmarks, setBookmarks] = useState(() => new Set());
+  // bookmarks như cũ
+    const [bookmarks, setBookmarks] = useState(() => new Set());
 
-  // controlled filter inputs (pending UI)
-  const [pending, setPending] = useState({
-    sortDistance: "ascending", // ascending | descending
-    sortPrice: "lowest", // lowest | highest
-    district: "7", // string for select; "all" means all
-    bookmarked: "yes", // all | yes | no (only matters for tenant)
-  });
-
-  // applied filters
-  const [filters, setFilters] = useState(pending);
-
-  const districtOptions = useMemo(
-    () => [
-      ...Array.from(new Set(rooms.map((r) => r.district))).sort((a, b) => a - b),
-    ],
-    []
-  );
-
-  const applyFilters = () => setFilters(pending);
-  const clearFilters = () => {
-    const reset = {
-      sortDistance: "ascending",
-      sortPrice: "lowest",
-      district: "all",
-      bookmarked: "all",
-    };
-    setPending(reset);
-    setFilters(reset);
-  };
-
-  const toggleBookmark = (roomId) => {
-    setBookmarks((prev) => {
-      const next = new Set(prev);
-      if (next.has(roomId)) next.delete(roomId);
-      else next.add(roomId);
-      return next;
+    // ✅ Dùng 1 state filters duy nhất, áp dụng ngay khi chọn
+    const [filters, setFilters] = useState({
+        sortDistance: "ascending",
+        sortPrice: "lowest",
+        district: "all",
+        bookmarked: "all",
     });
-  };
+
+    const districtOptions = useMemo(
+        () => [...Array.from(new Set(rooms.map(r => r.district))).sort((a,b)=>a-b)],
+        []
+    );
+
+    const setFilter = (key, value) =>
+        setFilters(prev => ({ ...prev, [key]: value }));
+
+    const clearFilters = () =>
+        setFilters({
+        sortDistance: "ascending",
+        sortPrice: "lowest",
+        district: "all",
+        bookmarked: "all",
+        });
+
+    const toggleBookmark = (roomId) => {
+        setBookmarks(prev => {
+        const next = new Set(prev);
+        next.has(roomId) ? next.delete(roomId) : next.add(roomId);
+        return next;
+        });
+    };
 
   return (
     <div style={{ padding: 16 }}>
       <h1 style={{ fontWeight: 700, fontSize: 24, marginBottom: 12 }}>Broomate</h1>
 
-      <RoomFilter
-        pending={pending}
-        setPending={setPending}
-        onApply={applyFilters}
+    <RoomFilter
+        filters={filters}
+        setFilter={setFilter}
         onClear={clearFilters}
         isTenant={isTenant}
         districtOptions={districtOptions}

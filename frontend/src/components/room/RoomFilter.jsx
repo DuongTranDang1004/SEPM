@@ -1,123 +1,112 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
+import "./RoomFilter.css";
 
-function RoomFilter({
-  pending,
-  setPending,
-  onApply,
-  onClear,
-  isTenant,
-  districtOptions,
-}) {
-  const chip = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    background: "#fff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 999,
-    padding: "10px 14px",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-  };
+function FancySelect({ label, value, onChange, options = [] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
 
-  const label = { fontSize: 14, color: "#4b5563", whiteSpace: "nowrap" };
-  const select = { border: "none", outline: "none", background: "transparent" };
+  useEffect(() => {
+    const onDocClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  const current = options.find(o => o.value === value);
 
   return (
-    <div style={{
-      background: "#fff",
-      border: "1px solid #e5e7eb",
-      borderRadius: 16,
-      padding: 16,
-      boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-    }}>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-        <div style={chip}>
-          <span style={label}>Located near you</span>
-          <select
-            style={select}
-            value={pending.sortDistance}
-            onChange={(e) => setPending((p) => ({ ...p, sortDistance: e.target.value }))}
-          >
-            <option value="ascending">Ascending</option>
-            <option value="descending">Descending</option>
-          </select>
-        </div>
-
-        <div style={chip}>
-          <span style={label}>Price per month</span>
-          <select
-            style={select}
-            value={pending.sortPrice}
-            onChange={(e) => setPending((p) => ({ ...p, sortPrice: e.target.value }))}
-          >
-            <option value="lowest">Lowest</option>
-            <option value="highest">Highest</option>
-          </select>
-        </div>
-
-        <div style={chip}>
-          <span style={label}>District No</span>
-          <select
-            style={select}
-            value={pending.district}
-            onChange={(e) => setPending((p) => ({ ...p, district: e.target.value }))}
-          >
-            <option value="all">All</option>
-            {districtOptions.map((d) => (
-              <option key={d} value={String(d)}>
-                District {d}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {isTenant && (
-          <div style={chip}>
-            <span style={label}>Bookmarked</span>
-            <select
-              style={select}
-              value={pending.bookmarked}
-              onChange={(e) => setPending((p) => ({ ...p, bookmarked: e.target.value }))}
-            >
-              <option value="all">All</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </div>
-        )}
-
-        <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
-          <button
-            onClick={onClear}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#2563eb",
-              padding: "10px 12px",
-              borderRadius: 10,
-              cursor: "pointer",
-            }}
-          >
-            Clear Filters
-          </button>
-          <button
-            onClick={onApply}
-            style={{
-              background: "#10b981",
-              color: "white",
-              border: "1px solid #10b981",
-              padding: "10px 14px",
-              borderRadius: 12,
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
-          >
-            Apply Filters
-          </button>
-        </div>
+    <div ref={ref} className="rf-seg" role="combobox" aria-expanded={open} data-open={open}>
+      <div
+        className="rf-head"
+        onClick={() => setOpen(v => !v)}
+        tabIndex={0}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpen(v => !v)}
+      >
+        <span className="rf-label">{label}</span>
+        <span className="rf-value">{current ? current.label : "—"}</span>
+        <span className={`rf-caret ${open ? "open" : ""}`} aria-hidden />
       </div>
+
+      {open && (
+        <ul className="rf-menu" role="listbox">
+          {options.map(o => (
+            <li
+              key={o.value}
+              className={`rf-option ${o.value === value ? "selected" : ""}`}
+              role="option"
+              aria-selected={o.value === value}
+              onClick={() => { onChange(o.value); setOpen(false); }}  // ✅ áp dụng ngay
+            >
+              {o.label}
+              {o.value === value ? <span className="rf-check">✓</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="rf-divider" />
     </div>
   );
 }
 
-export default RoomFilter;
+export default function RoomFilter({
+  filters,
+  setFilter,           // (key, value) => void
+  onClear,             // nút phải = Clear
+  isTenant,
+  districtOptions = [],
+}) {
+  const distanceOpts = [
+    { value: "ascending",  label: "Ascending" },
+    { value: "descending", label: "Descending" },
+  ];
+  const priceOpts = [
+    { value: "lowest",  label: "Lowest" },
+    { value: "highest", label: "Highest" },
+  ];
+  const districtOpts = [
+    { value: "all", label: "All" },
+    ...districtOptions.map(d => ({ value: String(d), label: `District ${d}` })),
+  ];
+  const bookmarkedOpts = [
+    { value: "all", label: "All" },
+    { value: "yes", label: "Yes" },
+    { value: "no",  label: "No" },
+  ];
+
+  return (
+    <div className="rf-wrap">
+      <div className="rf-pill">
+        <FancySelect
+          label="Located near you"
+          value={filters.sortDistance}
+          onChange={(v) => setFilter("sortDistance", v)}
+          options={distanceOpts}
+        />
+        <FancySelect
+          label="Price per month"
+          value={filters.sortPrice}
+          onChange={(v) => setFilter("sortPrice", v)}
+          options={priceOpts}
+        />
+        <FancySelect
+          label="District No"
+          value={filters.district}
+          onChange={(v) => setFilter("district", v)}
+          options={districtOpts}
+        />
+        {isTenant && (
+          <FancySelect
+            label="Bookmarked"
+            value={filters.bookmarked}
+            onChange={(v) => setFilter("bookmarked", v)}
+            options={bookmarkedOpts}
+          />
+        )}
+
+        {/* ✅ nút phải = Clear */}
+        <button className="rf-apply" onClick={onClear} type="button">
+          Clear
+        </button>
+      </div>
+    </div>
+  );
+}
