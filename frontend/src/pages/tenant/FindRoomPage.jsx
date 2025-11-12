@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-// import './FindRoomsPage.css'; // CSS
+import './FindRoomsPage.css';
 
 /**
  * FindRoomsPage Component displays and filters Room lists
@@ -106,7 +106,7 @@ function FindRoomsPage() {
       
       {/* 1. 측면 내비게이션 바 (Sidebar Placeholder) */}
       <aside className="sidebar-placeholder">
-        {/* ... Sidebar 내용 (이전 페이지와 동일) ... */}
+        {/* ... Sidebar like other pages, enter component here ... */}
         <h2 className="logo-sidebar">Broomate</h2>
         <nav className="sidebar-nav">
           <ul>

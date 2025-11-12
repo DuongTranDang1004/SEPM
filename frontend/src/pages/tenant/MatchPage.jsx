@@ -1,5 +1,5 @@
 import React from 'react';
-// import './MatchPage.css';
+import './MatchPage.css';
 
 /**
  * MatchPage Component is displayed when two tenants bookmark each other

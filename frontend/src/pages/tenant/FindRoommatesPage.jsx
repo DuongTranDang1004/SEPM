@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-// import './FindRoommatesPage.css'; // 필요한 경우 CSS 파일을 import 합니다.
+import './FindRoommatesPage.css'; // CSS
 
 /**
  * FindRoommatesPage components allows user to explore, 
