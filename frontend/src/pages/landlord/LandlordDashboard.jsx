@@ -12,13 +12,100 @@ const users = [
 const currentUser = users[0]; // landlord
 
 // Fake rooms (6 cái)
+// Fake rooms (6 cái)
 const rooms = [
-  { id:"r1", title:"3BHK", address:"Indiranagar, Bengaluru", minStayMonths:3, pricePerMonth:12000, district:7, distanceKm:1.2, status:"available", imgUrl:"https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
-  { id:"r2", title:"2BHK", address:"Phu Nhuan, HCMC",       minStayMonths:6, pricePerMonth:9000000, district:3, distanceKm:5.4, status:"available", imgUrl:"https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
-  { id:"r3", title:"Studio",address:"District 7, HCMC",     minStayMonths:1, pricePerMonth:4800000, district:7, distanceKm:2.0, status:"rented",    imgUrl:"https://images.unsplash.com/photo-1512918717608-632G7EH5960?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
-  { id:"r4", title:"1BR",   address:"District 4, HCMC",     minStayMonths:2, pricePerMonth:3900000, district:4, distanceKm:3.3, status:"available", imgUrl:"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
-  { id:"r5", title:"Loft",  address:"District 10, HCMC",    minStayMonths:1, pricePerMonth:6000000, district:10,distanceKm:5.0, status:"available", imgUrl:"https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
-  { id:"r6", title:"3BHK",  address:"District 3, HCMC",     minStayMonths:2, pricePerMonth:6800000, district:3, distanceKm:4.1, status:"rented",    imgUrl:"https://images.unsplash.com/photo-1502672023588-b61e050c5341?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
+  {
+    id: "r1",
+    title: "3BHK",
+    address: "Indiranagar, Bengaluru",
+    location: "Indiranagar, Bengaluru",   // <– thêm
+    minStayMonths: 3,
+    pricePerMonth: 12000,
+    district: 7,
+    distanceKm: 1.2,
+    status: "available",
+    imgUrl:
+      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1400&auto=format&fit=crop",
+    landlordUserId: "u1",
+  },
+  {
+    id: "r2",
+    title: "2BHK",
+    address: "Phu Nhuan, HCMC",
+    location: "Phu Nhuan, HCMC",
+    minStayMonths: 6,
+    pricePerMonth: 9000000,
+    district: 3,
+    distanceKm: 5.4,
+    status: "available",
+    imgUrl:
+      "https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1400&auto=format&fit=crop",
+    landlordUserId: "u1",
+  },
+  {
+    id: "r3",
+    title: "Studio",
+    address: "District 7, HCMC",
+    location: "District 7, HCMC",
+    minStayMonths: 1,
+    pricePerMonth: 4800000,
+    district: 7,
+    distanceKm: 2.0,
+    status: "rented",
+    imgUrl:
+      "https://images.unsplash.com/photo-1512918717608-632G7EH5960?q=80&w=1400&auto=format&fit=crop",
+    landlordUserId: "u1",
+    tenant: {                       // <– renter cho UI
+      name: "Nguyen Minh Khoa",
+      avatar: "https://i.pravatar.cc/64?img=11",
+    },
+  },
+  {
+    id: "r4",
+    title: "1BR",
+    address: "District 4, HCMC",
+    location: "District 4, HCMC",
+    minStayMonths: 2,
+    pricePerMonth: 3900000,
+    district: 4,
+    distanceKm: 3.3,
+    status: "available",
+    imgUrl:
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1400&auto=format&fit=crop",
+    landlordUserId: "u1",
+  },
+  {
+    id: "r5",
+    title: "Loft",
+    address: "District 10, HCMC",
+    location: "District 10, HCMC",
+    minStayMonths: 1,
+    pricePerMonth: 6000000,
+    district: 10,
+    distanceKm: 5.0,
+    status: "available",
+    imgUrl:
+      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1400&auto=format&fit=crop",
+    landlordUserId: "u1",
+  },
+  {
+    id: "r6",
+    title: "3BHK",
+    address: "District 3, HCMC",
+    location: "District 3, HCMC",
+    minStayMonths: 2,
+    pricePerMonth: 6800000,
+    district: 3,
+    distanceKm: 4.1,
+    status: "rented",
+    imgUrl:
+      "https://images.unsplash.com/photo-1502672023588-b61e050c5341?q=80&w=1400&auto=format&fit=crop",
+    landlordUserId: "u1",
+    tenant: {                       // <– renter thứ 2
+      name: "Tran Bao Anh",
+      avatar: "https://i.pravatar.cc/64?img=21",
+    },
+  },
 ];
 
 const currency = (n) =>
