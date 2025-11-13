@@ -1,33 +1,38 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-// import './App.css';
+import './App.css';
 
 // Tenant page component imports
 import TenantDashboard from './pages/tenant/TenantDashboard'; 
-import ProfileMatch from './pages/tenant/FindRoommatesPage'; // FindRoommatesPage.jsx 파일명 사용
-import Messages from './pages/tenant/Messages'; // MessageDetail 페이지로 가정
-import NotFoundPage from './pages/NotFoundPage'; // (404 페이지)
+import ProfileMatch from './pages/tenant/FindRoommatesPage'; // FindRoommatesPage.jsx
+import Messages from './pages/tenant/MessagePage'; // MessageDetail Page
+import NotFoundPage from './pages/NotFoundPage'; // 404
 
 // 2. Routing
 function App() {
   return (
-    <Router>
-      <div className="App">
-        {/* TODO: Enter Navbar, Sidebar, etc.
-        */}
+    <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
+      <NavBar />
+      <main className="flex-grow max-w-7xl w-full mx-auto p-0 sm:p-4">
+        {/* Main router configuration */}
         <Routes>
-          {/* Tenant Flow routing */}
+          {/* Default/Root Route Redirects to Dashboard */}
           <Route path="/" element={<TenantDashboard />} /> 
+          
+          {/* Dashboard Route */}
           <Route path="/dashboard" element={<TenantDashboard />} />
+          
+          {/* Main Swiping/Matching View Route */}
           <Route path="/match" element={<ProfileMatch />} />
-          {/* Message details page(ID parameters required) */}
+          
+          {/* Message Detail Route (with dynamic ID) */}
           <Route path="/messages/:id" element={<Messages />} /> 
           
-          {/* Other routing */}
-          <Route path="*" element={<NotFoundPage />} /> {/* 404 Not Found */}
+          {/* Fallback route for 404 */}
+          <Route path="*" element={<NotFoundPage />} /> 
         </Routes>
-      </div>
-    </Router>
+      </main>
+    </div>
   );
 }
 
