@@ -1,133 +1,63 @@
-import React, { useMemo, useState } from "react";
-import RoomFilter from "../../components/room/RoomFilter";
-import RoomList from "../../components/room/RoomList";
-import ErrorBoundary from "../../components/ErrorBoundary";
-// ---------------- Fake data (swap with API later) ----------------
+import React, { useMemo } from "react";
+import LandlordGreeting from "../../components/landlord/LandlordGreeting";
+import LandlordOverview from "../../components/landlord/LandlordOverview";
+import LandlordPublished from "../../components/landlord/LandlordPublished";
+
+// Fake users
 const users = [
-  { id: "u1", name: "User1", role: "landlord", avatar: "🧑🏻‍💼" },
+  { id: "u1", name: "John", role: "landlord", avatar: "🧑🏻‍💼" },
   { id: "u2", name: "User2", role: "landlord", avatar: "👩🏻‍💼" },
   { id: "u3", name: "Truc", role: "tenant", avatar: "🧑🏻" },
 ];
+const currentUser = users[0]; // landlord
 
-// choose who is logged in
-const currentUser = users[2]; // toggle to test landlord vs tenant
-
+// Fake rooms (6 cái)
 const rooms = [
-  {
-    id: "r1",
-    title: "Room 1",
-    address: "123 Nguyen Van Linh, Tan Phong",
-    minStayMonths: 6,
-    pricePerMonth: 4500000,
-    district: 7,
-    distanceKm: 1.2,
-    imgUrl:
-      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1400&auto=format&fit=crop",
-    landlordUserId: "u1",
-  },
-  {
-    id: "r2",
-    title: "Room 1",
-    address: "45 Tran Xuan Soan, Tan Hung",
-    minStayMonths: 3,
-    pricePerMonth: 3800000,
-    district: 7,
-    distanceKm: 2.4,
-    imgUrl:
-      "https://images.unsplash.com/photo-1505691723518-36a5ac3b2bc1?q=80&w=1400&auto=format&fit=crop",
-    landlordUserId: "u1",
-  },
-  {
-    id: "r3",
-    title: "Room 1",
-    address: "88 Dinh Tien Hoang, Da Kao",
-    minStayMonths: 1,
-    pricePerMonth: 5200000,
-    district: 1,
-    distanceKm: 6.8,
-    imgUrl:
-      "https://images.unsplash.com/photo-1501183638710-841dd1904471?q=80&w=1400&auto=format&fit=crop",
-    landlordUserId: "u2",
-  },
-  {
-    id: "r4",
-    title: "Room 1",
-    address: "12A Le Loi, Ben Nghe",
-    minStayMonths: 2,
-    pricePerMonth: 7000000,
-    district: 1,
-    distanceKm: 5.9,
-    imgUrl:
-      "https://images.unsplash.com/photo-1505691723518-36a5ac3b2bc1?q=80&w=1400&auto=format&fit=crop",
-    landlordUserId: "u2",
-  },
+  { id:"r1", title:"3BHK", address:"Indiranagar, Bengaluru", minStayMonths:3, pricePerMonth:12000, district:7, distanceKm:1.2, status:"available", imgUrl:"https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
+  { id:"r2", title:"2BHK", address:"Phu Nhuan, HCMC",       minStayMonths:6, pricePerMonth:9000000, district:3, distanceKm:5.4, status:"available", imgUrl:"https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
+  { id:"r3", title:"Studio",address:"District 7, HCMC",     minStayMonths:1, pricePerMonth:4800000, district:7, distanceKm:2.0, status:"rented",    imgUrl:"https://images.unsplash.com/photo-1512918717608-632G7EH5960?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
+  { id:"r4", title:"1BR",   address:"District 4, HCMC",     minStayMonths:2, pricePerMonth:3900000, district:4, distanceKm:3.3, status:"available", imgUrl:"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
+  { id:"r5", title:"Loft",  address:"District 10, HCMC",    minStayMonths:1, pricePerMonth:6000000, district:10,distanceKm:5.0, status:"available", imgUrl:"https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
+  { id:"r6", title:"3BHK",  address:"District 3, HCMC",     minStayMonths:2, pricePerMonth:6800000, district:3, distanceKm:4.1, status:"rented",    imgUrl:"https://images.unsplash.com/photo-1502672023588-b61e050c5341?q=80&w=1400&auto=format&fit=crop", landlordUserId:"u1" },
 ];
 
 const currency = (n) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
+  typeof n === "number"
+    ? new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n)
+    : "N/A";
 
-export default function LandlordDashboard() {
-    const isTenant = currentUser.role === "tenant";
+function LandlordDashboard() {
+  const myRooms = useMemo(
+    () => rooms.filter(r => r.landlordUserId === currentUser.id),
+    []
+  );
 
-  // bookmarks như cũ
-    const [bookmarks, setBookmarks] = useState(() => new Set());
-
-    // ✅ Dùng 1 state filters duy nhất, áp dụng ngay khi chọn
-    const [filters, setFilters] = useState({
-        sortDistance: "ascending",
-        sortPrice: "lowest",
-        district: "all",
-        bookmarked: "all",
-    });
-
-    const districtOptions = useMemo(
-        () => [...Array.from(new Set(rooms.map(r => r.district))).sort((a,b)=>a-b)],
-        []
-    );
-
-    const setFilter = (key, value) =>
-        setFilters(prev => ({ ...prev, [key]: value }));
-
-    const clearFilters = () =>
-        setFilters({
-        sortDistance: "ascending",
-        sortPrice: "lowest",
-        district: "all",
-        bookmarked: "all",
-        });
-
-    const toggleBookmark = (roomId) => {
-        setBookmarks(prev => {
-        const next = new Set(prev);
-        next.has(roomId) ? next.delete(roomId) : next.add(roomId);
-        return next;
-        });
-    };
+  const overview = useMemo(() => {
+    const total = myRooms.length;
+    const available = myRooms.filter(r => r.status === "available").length;
+    const rented = myRooms.filter(r => r.status === "rented").length;
+    return { total, available, rented };
+  }, [myRooms]);
 
   return (
-    <div style={{ padding: 16 }}>
-      <h1 style={{ fontWeight: 700, fontSize: 24, marginBottom: 12 }}>Broomate</h1>
-
-    <RoomFilter
-        filters={filters}
-        setFilter={setFilter}
-        onClear={clearFilters}
-        isTenant={isTenant}
-        districtOptions={districtOptions}
+    <div className="ldb-wrap">
+      <LandlordGreeting
+        name={currentUser.name}
+        lastLogin="2 hours ago"
       />
 
-      <div style={{ height: 12 }} />
+      <LandlordOverview stats={overview} />
 
-      <ErrorBoundary>
-        <RoomList
-            rooms={rooms}
-          filters={filters}
-          currency={currency}
-          isTenant={isTenant}
-          bookmarks={bookmarks}
-          onToggleBookmark={toggleBookmark}
-        />
-      </ErrorBoundary>
+      <LandlordPublished
+        title="My Published Rooms"
+        rooms={myRooms.slice(0, 6)}
+        currency={currency}
+        // landlord không bookmark
+        canBookmark={false}
+      />
     </div>
   );
 }
+
+
+export default LandlordDashboard;
