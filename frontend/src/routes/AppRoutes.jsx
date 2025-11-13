@@ -4,6 +4,7 @@ import LoginPage from '../pages/auth/LoginPage';
 import SignupPage from '../pages/auth/SignupPage';
 import LandlordDashboard from '../pages/landlord/LandlordDashboard';
 import FindRoomPage from '../pages/tenant/FindRoomPage';
+import UploadRoomPage from '../pages/landlord/UploadRoomPage';
 function AppRoutes() {
   return (
     <Routes>
@@ -18,6 +19,7 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/login" replace />} />
       <Route path = "/findroom" element = {<FindRoomPage />}/>
       <Route path = "/landlord/dashboard" element = {<LandlordDashboard />}/>
+      <Route path = "/landlord/upload-room" element = {<UploadRoomPage />}/>
     </Routes>
   );
 }
