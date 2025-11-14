@@ -24,7 +24,7 @@
     background-color: #ff8598;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    color: white;
+    color: black;
     padding: 30px;
     flex: 1;
     min-height: 400px;
@@ -73,7 +73,7 @@
     left: 50%;
     transform: translate(-50%, -50%) rotate(-10deg); 
     
-    background-color: white;
+    background-color: #FFE5EA;
     color: black; 
     font-size: 24px;
     font-weight: bold;
@@ -96,9 +96,9 @@
 }
 
 .action-button {
-    background-color: white;
+    background-color: #FFE5EA;
     border: 1px solid #ccc;
-    color: #555;
+    color: black;
     padding: 10px 30px;
     border-radius: 5px;
     cursor: pointer;

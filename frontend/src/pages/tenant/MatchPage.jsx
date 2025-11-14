@@ -39,7 +39,7 @@ function MatchPage() {
   return (
     <div className="main-layout-flex-container">
       
-      {/*Sidebar Placeholder*/}
+      {/*Sidebar Placeholder
       <aside className="sidebar-placeholder">
         <h2 className="logo-sidebar">Broomate</h2>
         <nav className="sidebar-nav">
@@ -60,6 +60,7 @@ function MatchPage() {
           Sign Out
         </div>
       </aside>
+      */}
 
       {/* Match card*/}
       <main className="content-area-match-flex">

@@ -7,6 +7,7 @@ import TenantDashboard from './pages/tenant/TenantDashboard';
 import FindRoomsPage from './pages/tenant/FindRoomPage';
 import Messages from './pages/shared/MessagePage'; // MessageDetail Page
 import NotFoundPage from './pages/NotFoundPage'; // 404
+import Match from './pages/tenant/MatchPage'; //Match
 
 // 2. Routing. Add Navbar once it is built
 function App() {
@@ -27,6 +28,9 @@ function App() {
 
           {/* Message Detail Route (with dynamic ID) */}
           <Route path="/room" element={<FindRoomsPage />} /> 
+
+          {/* Tenant match */}
+          <Route path="/match" element={<Match />} /> 
           
           {/* Fallback route for 404 */}
           <Route path="*" element={<NotFoundPage />} /> 
