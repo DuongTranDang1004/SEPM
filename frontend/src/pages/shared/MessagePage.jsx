@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-// import './MessagePage.css'; 
+import './MessagePage.css'; 
 
 /**
  * MessagePage component displays chat interface
@@ -61,7 +61,6 @@ function MessagePage() {
           <div className="message-bubble">
             <p>{message.content}</p>
           </div>
-          <div className="message-time">{message.time}</div>
         </div>
       )}
 
@@ -74,19 +73,20 @@ function MessagePage() {
 
   return (
     <div className="main-layout-flex-container">
-      {/* 1. Sidebar  */}
+      {/* 1. Sidebar 
       <aside className="sidebar-placeholder">
-        {/* ... Sidebar  ... */}
+        {/* ... Sidebar  ...
         <h2 className="logo-sidebar">Broomate</h2>
         <nav className="sidebar-nav">
           <ul>
             <li><a href="#home">Broomates</a></li>
-            {/* ... Others ... */}
+            {/* ... Others ...
             <li><a href="#manage-chats">Manage Chats</a></li>
           </ul>
         </nav>
         <div className="sign-out-placeholder">Sign Out</div>
       </aside>
+      */}
 
       {/* 2. Main content */}
       <main className="content-area-chat-flex">

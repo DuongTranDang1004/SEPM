@@ -4,7 +4,6 @@ import './App.css';
 
 // Tenant page component imports
 import TenantDashboard from './pages/tenant/TenantDashboard'; 
-import ProfileMatch from './pages/tenant/FindRoommatesPage'; // FindRoommatesPage.jsx
 import FindRoomsPage from './pages/tenant/FindRoomPage';
 import Messages from './pages/shared/MessagePage'; // MessageDetail Page
 import NotFoundPage from './pages/NotFoundPage'; // 404
@@ -22,9 +21,6 @@ function App() {
           
           {/* Dashboard Route */}
           <Route path="/dashboard" element={<TenantDashboard />} />
-          
-          {/* Main Swiping/Matching View Route */}
-          <Route path="/match" element={<ProfileMatch />} />
           
           {/* Message Detail Route (with dynamic ID) */}
           <Route path="/messages/:id" element={<Messages />} /> 
