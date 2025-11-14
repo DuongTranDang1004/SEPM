@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './FindRoomsPage.css';
+import './FindRoomPage.css';
 
 /**
  * FindRoomsPage Component displays and filters Room lists
@@ -104,9 +104,8 @@ function FindRoomsPage() {
   return (
     <div className="main-layout-flex-container">
       
-      {/* 1. 측면 내비게이션 바 (Sidebar Placeholder) */}
-      <aside className="sidebar-placeholder">
-        {/* ... Sidebar like other pages, enter component here ... */}
+      {/* 1. Sidebar Placeholder */}
+      {/* <aside className="sidebar-placeholder">
         <h2 className="logo-sidebar">Broomate</h2>
         <nav className="sidebar-nav">
           <ul>
@@ -125,13 +124,14 @@ function FindRoomsPage() {
         </nav>
         <div className="sign-out-placeholder">Sign Out</div>
       </aside>
+      */}
 
-      {/* 2. 메인 콘텐츠 영역 */}
+      {/* 2. Main content */}
       <main className="content-area-vertical-flex">
         
         {/* Search Filter Header */}
         <div className="filter-header">
-          {/* 각 필터는 드롭다운 컴포넌트 Placeholder로 처리 */}
+          {/* All filters use dropdown placeholders */}
           <div className="filter-dropdown">
             <label>Located near you</label>
             <select value={filters.location} onChange={(e) => handleFilterChange('location', e.target.value)}>

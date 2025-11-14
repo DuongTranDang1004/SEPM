@@ -1,59 +1,201 @@
-/* ========================================================= */
-/* 1. Horizontal Layout: Sidebar and Main Content를 horizontally aligned */
-/* ========================================================= */
+/* ---------------------------------- */
+/* GLOBAL APPLICATION LAYOUT STRUCTURE */
+/* ---------------------------------- */
+.app-layout {
+  display: flex;
+  flex-direction: column; /* Outermost: Vertical stack (Navbar + Content Area) */
+  min-height: 100vh;
+}
 
-.main-layout-flex-container {
-    display: flex; 
-    flex-direction: row; 
-    min-height: calc(100vh - 60px); /* Assuming Navbar height is 60px */
+.navbar-placeholder {
+  /* This is where Navbar component will sit */
+  height: 64px; /* Example height for Navbar */
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.content-area {
+  display: flex;
+  flex-direction: row; /* Below Navbar: Horizontal arrangement (Sidebar + Main Content) */
+  flex-grow: 1; /* Occupy remaining vertical space */
 }
 
 .sidebar-placeholder {
-    width: 250px;
-    background-color: white;
-    position: fixed; 
-    height: 100vh;
-    top: 0;
-    left: 0;
-    flex-shrink: 0; /* Sidebar의 너비가 줄어들지 않도록 고정 */
-    padding: 20px 0;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+  /* This is where Sidebar component will sit */
+  width: 250px; /* Example width for Sidebar */
+  background-color: #f3f4f6;
+  border-right: 1px solid #e5e7eb;
+  padding: 1rem;
 }
 
-/* ========================================================= */
-/* 2. Main contents layout - Vertical alignment of contents */
-/* ========================================================= */
-
-.content-area-vertical-flex {
-    display: flex; 
-    flex-direction: column; 
-    flex-grow: 1; 
-    padding: 40px;
-    background-color: #f4f4f4; 
-    margin-left: 250px; 
+.dashboard-main-content {
+  /* This is where TenantDashboard content will render */
+  flex-grow: 1; /* Occupy remaining horizontal space */
+  padding: 2rem;
+  background-color: #f9fafb; /* Light background for the dashboard area */
 }
 
-/* Search Card style */
-.search-card {
-    padding: 30px;
-    border-radius: 8px;
-    margin-bottom: 30px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    position: relative;
-    color: white;
-    width: 100%; 
+
+/* ---------------------------------- */
+/* Dashboard Content Styling */
+/* ---------------------------------- */
+.dashboard-title {
+  font-size: 1.875rem; /* 3xl */
+  font-weight: 700; /* bold */
+  color: #1f2937; /* gray-800 */
+  margin-bottom: 2rem; /* mb-8 */
+  /* Title also needs left/right margin to align with cards */
+  margin-left: 30px; 
+  margin-right: 30px;
 }
 
-.sidebar-nav ul {
-    list-style: none;
-    padding: 0;
+/* Card Styling */
+.dashboard-card {
+  /* Added positioning for absolute button placement */
+  position: relative; 
+  
+  /* ADDED: 30px margin on the left and right */
+  margin-left: 30px;
+  margin-right: 30px;
+  margin-bottom: 1.5rem; 
+  
+  padding: 2rem; /* p-8 */
+  /* Added extra space at the bottom to accommodate the button */
+  padding-bottom: 4rem; 
+  
+  border-radius: 0.75rem; /* rounded-xl */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); /* shadow-md */
+  transition: box-shadow 300ms, transform 300ms;
 }
-.sidebar-nav li a {
-    text-decoration: none;
-    color: #555;
-    display: block;
-    padding: 10px 20px;
-    font-size: 14px;
+
+.dashboard-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); /* hover:shadow-lg */
 }
-.roommate-search-card { background-color: #ff8598; } /* 핑크 */
-.room-search-card { background-color: #4dd0e1; }     /* 청록 */
+
+/* Broomate Card (Pink/Coral) */
+.dashboard-card-broomate {
+  /* UPDATED: FF8598 */
+  background-color: #FF8598; 
+  /* Border color slightly darker than background for definition */
+  border: 1px solid #e07484; 
+}
+.card-title-broomate {
+  /* Title color should have good contrast */
+  color: #581621; /* Darker tone for readability */
+}
+.card-description-broomate {
+  /* Description color */
+  color: #792030;
+}
+.search-button-broomate {
+  /* UPDATED: FFE5EA */
+  background-color: #FFE5EA; 
+  /* UPDATED: Text color black */
+  color: black; 
+}
+.search-button-broomate:hover {
+  /* Slightly darker on hover */
+  background-color: #fce2e8; 
+}
+
+
+/* Room Card (Cyan/Sky Blue) */
+.dashboard-card-room {
+  /* UPDATED: 4DD0E1 */
+  background-color: #4DD0E1; 
+  /* Border color slightly darker than background for definition */
+  border: 1px solid #43b7c7; 
+}
+.card-title-room {
+  /* Title color should have good contrast */
+  color: #0d47a1; /* Darker blue for readability */
+}
+.card-description-room {
+  /* Description color */
+  color: #1565c0; 
+}
+.search-button-room {
+  /* UPDATED: E0F7FA */
+  background-color: #E0F7FA; 
+  /* UPDATED: Text color black */
+  color: black;
+}
+.search-button-room:hover {
+  /* Slightly darker on hover */
+  background-color: #d8f1f4; 
+}
+
+
+/* Shared Button Style */
+.search-button {
+  /* Positioning the button to the bottom-right of the card */
+  position: absolute;
+  bottom: 1.5rem; /* Distance from the bottom (was 2rem of padding, now 1.5rem margin) */
+  right: 2rem;   /* Distance from the right edge (matches card padding) */
+  
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* space-x-2 */
+  padding: 0.75rem 1.5rem; /* px-6 py-3 */
+  /* color: white; <-- REMOVED from shared style as color is now specific to each button */
+  font-weight: 600; /* font-semibold */
+  border-radius: 9999px; /* rounded-full */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); /* shadow-lg */
+  transition: background-color 200ms ease-in-out;
+  cursor: pointer;
+}
+
+/* ---------------------------------- */
+/* Modal Styling (For Popups) */
+/* ---------------------------------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(17, 24, 39, 0.75); /* gray-900 bg-opacity-75 */
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem; /* p-4 */
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 0.75rem; /* rounded-xl */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* shadow-2xl */
+  padding: 1.5rem; /* p-6 */
+  width: 100%;
+  max-width: 64rem; /* max-w-4xl */
+  max-height: 90vh;
+  overflow-y: auto;
+  transform: scale(1);
+  opacity: 1;
+  transition: transform 300ms, opacity 300ms;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem; /* mb-4 */
+  border-bottom: 1px solid #e5e7eb; /* border-b pb-2 */
+  padding-bottom: 0.5rem; 
+}
+
+.modal-title {
+  font-size: 1.5rem; /* 2xl */
+  font-weight: 600; /* font-semibold */
+  color: #1f2937; /* gray-800 */
+}
+
+.modal-close-button {
+  color: #6b7280; /* gray-500 */
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 150ms;
+}
+
+.modal-close-button:hover {
+  color: #1f2937; /* gray-900 */
+}

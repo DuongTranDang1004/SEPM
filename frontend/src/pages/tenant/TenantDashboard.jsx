@@ -1,62 +1,96 @@
-import React from 'react';
-import './TenantDashboard.css'; // Import Separate CSS if required
+import React, { useState } from 'react';
+import { Search } from 'lucide-react';
+import FindRoommatesPage from './FindRoommatesPage';
+import FindRoomPage from './FindRoomPage';
+import './TenantDashboard.css'; // Load separated CSS file
 
-/**
- * TenantDashboard Component displays Broomate's primary dashboard
- * composed of Sidebar and main search area
- */
-function TenantDashboard() {
+// Modal Component: Handles popup background and close button
+const Modal = ({ isOpen, onClose, children, title }) => {
+  if (!isOpen) return null;
+
   return (
-    // 'main-layout' class is a flex container with a Sidebar and Content Area.
-    <div className="main-layout">
-      
-      {/* 1. (Sidebar Placeholder) */}
-      <aside className="sidebar-placeholder">
-        <h2 className="logo-sidebar">Broomate</h2>
-        <nav className="sidebar-nav">
-          <ul>
-            {/* Roomate menu */}
-            <li><a href="#find-roommates">Find Roommates</a></li>
-            <li><a href="#bookmarks-roommates">Bookmarks</a></li>
-            <li><a href="#blocked">Blocked</a></li>
-            <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid #eee' }} />
-            {/* Room menu */}
-            <li><a href="#rooms">Rooms</a></li>
-            <li><a href="#find-rooms">Find Rooms</a></li>
-            <li><a href="#bookmarks-rooms">Bookmarks</a></li>
-            <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid #eee' }} />
-            {/* Extras */}
-            <li><a href="#chats">Chats</a></li>
-            <li><a href="#manage-chats">Manage Chats</a></li>
-          </ul>
-        </nav>
-        
-        <div className="sign-out-placeholder">
-          Sign Out
+    <div className="modal-backdrop" onClick={onClose}>
+      <div 
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
+      >
+        <div className="modal-header">
+          <h2 className="modal-title">{title}</h2>
+          <button onClick={onClose} className="modal-close-button">
+            &times;
+          </button>
         </div>
-      </aside>
-
-      {/* 2. Main content area */}
-      <main className="content-area-vertical-flex">
-        {/* The above cab be handled by App.js, 
-           but this part is left empty above content-area, or implements padding */}
-        
-        {/* Find roomate (Coral Color) */}
-        <section className="search-card roommate-search-card">
-          <h3>Looking for **Roommates**?</h3>
-          <p>Lorem ipsum dolor sit amet consectetur. Aliquet accumsan sed vestibulum vestibulum cras tempus.</p>
-          <button className="search-btn">Search 🔍</button>
-        </section>
-
-        {/* Find Rooms (Teal Color) */}
-        <section className="search-card room-search-card">
-          <h3>Looking for **Rooms**?</h3>
-          <p>Lorem ipsum dolor sit amet consectetur. Aliquet accumsan sed vestibulum vestibulum cras tempus.</p>
-          <button className="search-btn">Search 🔍</button>
-        </section>
-      </main>
+        {children}
+      </div>
     </div>
   );
-}
+};
+
+/**
+ * TenantDashboard: Tenant Dashboard page.
+ * Toggles Broomate search and Room search functionalities as modals.
+ */
+const TenantDashboard = () => {
+  const [isRoommatesModalOpen, setRoommatesModalOpen] = useState(false);
+  const [isRoomsModalOpen, setRoomsModalOpen] = useState(false);
+
+  // Modal toggle functions
+  const toggleRoommatesModal = () => setRoommatesModalOpen(!isRoommatesModalOpen);
+  const toggleRoomsModal = () => setRoomsModalOpen(!isRoomsModalOpen);
+
+  return (
+    <div className="tenant-dashboard-container">
+      <h1 className="dashboard-title">Tenant Dashboard</h1>
+
+      {/* 1. Broomate Search Card (Coral - Find Roommates) */}
+      <div className="dashboard-card dashboard-card-broomate">
+        <h2 className="card-title card-title-broomate">Looking for Broomates?</h2>
+        <p className="card-description card-description-broomate">
+          Lorem ipsum dolor sit amet consectetur. Aliquat accumsan sed vestibulum vestibulum cras tempus.
+        </p>
+        <button
+          onClick={toggleRoommatesModal}
+          className="search-button search-button-broomate"
+        >
+          <span>Search</span>
+          <Search size={20} />
+        </button>
+      </div>
+
+      {/* 2. Room Search Card (Teal - Find Rooms) */}
+      <div className="dashboard-card dashboard-card-room">
+        <h2 className="card-title card-title-room">Looking for Rooms?</h2>
+        <p className="card-description card-description-room">
+          Lorem ipsum dolor sit amet consectetur. Aliquat accumsan sed vestibulum vestibulum cras tempus.
+        </p>
+        <button
+          onClick={toggleRoomsModal}
+          className="search-button search-button-room"
+        >
+          <span>Search</span>
+          <Search size={20} />
+        </button>
+      </div>
+
+      {/* Renders FindRoommatesPage inside a Modal */}
+      <Modal 
+        isOpen={isRoommatesModalOpen} 
+        onClose={toggleRoommatesModal} 
+        title="Find Roommates (Swipe)"
+      >
+        <FindRoommatesPage />
+      </Modal>
+
+      {/* Renders FindRoomsPage inside a Modal */}
+      <Modal 
+        isOpen={isRoomsModalOpen} 
+        onClose={toggleRoomsModal} 
+        title="Find Available Rooms"
+      >
+        <FindRoomPage />
+      </Modal>
+    </div>
+  );
+};
 
 export default TenantDashboard;
