@@ -19,7 +19,7 @@ function AppRoutes() {
       {/* Catch all - redirect to login */}
       <Route path="*" element={<Navigate to="/login" replace />} />
       <Route path = "/findroom" element = {<FindRoomPage />}/>
-      <Route path = "/landlord/dashboard" element = {<LandlordDashboard />}/>
+      <Route path = "/landlord/:landlordId" element = {<LandlordDashboard />}/>
       <Route path = "/landlord/upload-room" element = {<UploadRoomPage />}/>
       <Route path = "/rooms/:roomId" element = {<RoomDetailPage />}/>
     </Routes>

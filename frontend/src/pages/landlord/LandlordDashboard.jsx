@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useParams } from "react-router-dom";
 import LandlordGreeting from "../../components/landlord/LandlordGreeting";
 import LandlordOverview from "../../components/landlord/LandlordOverview";
 import LandlordPublished from "../../components/landlord/LandlordPublished";
@@ -9,16 +10,17 @@ const users = [
   { id: "u2", name: "User2", role: "landlord", avatar: "👩🏻‍💼" },
   { id: "u3", name: "Truc", role: "tenant", avatar: "🧑🏻" },
 ];
-const currentUser = users[0]; // landlord
 
-// Fake rooms (6 cái)
+// TODO: sau này thay bằng AuthContext (user đang login)
+const currentUser = users[0]; // giả sử đang login là landlord u1
+
 // Fake rooms (6 cái)
 const rooms = [
   {
     id: "r1",
     title: "3BHK",
     address: "Indiranagar, Bengaluru",
-    location: "Indiranagar, Bengaluru",   // <– thêm
+    location: "Indiranagar, Bengaluru",
     minStayMonths: 3,
     pricePerMonth: 12000,
     district: 7,
@@ -55,7 +57,7 @@ const rooms = [
     imgUrl:
       "https://images.unsplash.com/photo-1512918717608-632G7EH5960?q=80&w=1400&auto=format&fit=crop",
     landlordUserId: "u1",
-    tenant: {                       // <– renter cho UI
+    tenant: {
       name: "Nguyen Minh Khoa",
       avatar: "https://i.pravatar.cc/64?img=11",
     },
@@ -68,7 +70,7 @@ const rooms = [
     minStayMonths: 2,
     pricePerMonth: 3900000,
     district: 4,
-    distanceKm: 3.3,  
+    distanceKm: 3.3,
     status: "available",
     imgUrl:
       "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1400&auto=format&fit=crop",
@@ -101,7 +103,7 @@ const rooms = [
     imgUrl:
       "https://images.unsplash.com/photo-1502672023588-b61e050c5341?q=80&w=1400&auto=format&fit=crop",
     landlordUserId: "u1",
-    tenant: {                       // <– renter thứ 2
+    tenant: {
       name: "Tran Bao Anh",
       avatar: "https://i.pravatar.cc/64?img=21",
     },
@@ -114,35 +116,58 @@ const currency = (n) =>
     : "N/A";
 
 function LandlordDashboard() {
+  const { landlordId } = useParams();
+
+  // landlord đang được xem trong dashboard
+  const viewedLandlord = useMemo(() => {
+    if (!landlordId) return currentUser; // không có param → xem của mình
+    const found = users.find(
+      (u) => u.id === landlordId && u.role === "landlord"
+    );
+    return found || currentUser; // nếu không tìm thấy thì fallback về mình
+  }, [landlordId]);
+
+  const isOwnDashboard = viewedLandlord.id === currentUser.id;
+
   const myRooms = useMemo(
-    () => rooms.filter(r => r.landlordUserId === currentUser.id),
-    []
+    () => rooms.filter((r) => r.landlordUserId === viewedLandlord.id),
+    [viewedLandlord.id]
   );
 
   const overview = useMemo(() => {
     const total = myRooms.length;
-    const available = myRooms.filter(r => r.status === "available").length;
-    const rented = myRooms.filter(r => r.status === "rented").length;
+    const available = myRooms.filter((r) => r.status === "available").length;
+    const rented = myRooms.filter((r) => r.status === "rented").length;
     return { total, available, rented };
   }, [myRooms]);
+
+  const publishedTitle = isOwnDashboard
+    ? "My Published Rooms"
+    : `${viewedLandlord.name}'s Published Rooms`;
+
+  const lastLoginLabel = isOwnDashboard
+    ? "2 hours ago"
+    : "N/A • viewing public dashboard";
 
   return (
     <div className="ldb-wrap">
       <LandlordGreeting
-        name={currentUser.name}
-        lastLogin="2 hours ago"
+        name={viewedLandlord.name}
+        lastLogin={lastLoginLabel}
       />
 
-      <LandlordOverview stats={overview} />
+      <LandlordOverview
+        stats={overview}
+        isOwnDashboard={isOwnDashboard}
+        name={viewedLandlord.name}
+      />
 
       <LandlordPublished
-        title="My Published Rooms"
+        title={publishedTitle}
         rooms={myRooms.slice(0, 6)}
       />
-
     </div>
   );
 }
-
 
 export default LandlordDashboard;
