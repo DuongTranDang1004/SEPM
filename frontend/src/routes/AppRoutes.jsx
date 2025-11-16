@@ -5,6 +5,7 @@ import SignupPage from '../pages/auth/SignupPage';
 import LandlordDashboard from '../pages/landlord/LandlordDashboard';
 import FindRoomPage from '../pages/tenant/FindRoomPage';
 import UploadRoomPage from '../pages/landlord/UploadRoomPage';
+import RoomDetailPage from '../pages/shared/RoomDetailPage';
 function AppRoutes() {
   return (
     <Routes>
@@ -20,6 +21,7 @@ function AppRoutes() {
       <Route path = "/findroom" element = {<FindRoomPage />}/>
       <Route path = "/landlord/dashboard" element = {<LandlordDashboard />}/>
       <Route path = "/landlord/upload-room" element = {<UploadRoomPage />}/>
+      <Route path = "/rooms/:roomId" element = {<RoomDetailPage />}/>
     </Routes>
   );
 }

@@ -1,9 +1,11 @@
+// src/components/landlord/LandlordPublished.jsx
 import React, { useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";        // ✅ THÊM NÈ
 import PublishedRoomCard from "./PublishedRoomCard";
 import useDragScrollX from "../../hooks/useDragScrollX";
 import "./landlord-dashboard.css";
 
-const mk = (id, {title, imgUrl, status="available", tenant}) => ({
+const mk = (id, { title, imgUrl, status = "available", tenant }) => ({
   id,
   title,
   location: "Indiranagar, Bengaluru",
@@ -21,23 +23,58 @@ const mk = (id, {title, imgUrl, status="available", tenant}) => ({
   prefOther: "No",
   imgUrl,
   status,
-  tenant,   // undefined nếu chưa có
+  tenant, // undefined nếu chưa có
+  landlordUserId: "u1",      // ✅ để RoomDetail biết ông chủ là ai (fallback)
 });
 
 const FALLBACK_ROOMS = [
-  mk("r1", { title:"3BHK", imgUrl:"https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1600&auto=format&fit=crop" }),
-  mk("r2", { title:"2BHK", imgUrl:"https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1600&auto=format&fit=crop" }),
-  mk("r3", { title:"Studio", imgUrl:"https://images.unsplash.com/photo-1512918717608-632f1f1a3b67?q=80&w=1600&auto=format&fit=crop",
-             status:"rented", tenant:{ name:"Nguyen Minh Khoa", avatar:"https://i.pravatar.cc/64?img=11" } }),
-  mk("r4", { title:"1BR", imgUrl:"https://images.unsplash.com/photo-1586105251261-72a756497a12?q=80&w=1600&auto=format&fit=crop" }),
-  mk("r5", { title:"Loft", imgUrl:"https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=1600&auto=format&fit=crop" }),
-  mk("r6", { title:"3BHK", imgUrl:"https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1600&auto=format&fit=crop",
-             status:"rented", tenant:{ name:"Tran Bao Anh", avatar:"https://i.pravatar.cc/64?img=21" } }),
+  mk("r1", {
+    title: "3BHK",
+    imgUrl:
+      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1600&auto=format&fit=crop",
+  }),
+  mk("r2", {
+    title: "2BHK",
+    imgUrl:
+      "https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1600&auto=format&fit=crop",
+  }),
+  mk("r3", {
+    title: "Studio",
+    imgUrl:
+      "https://images.unsplash.com/photo-1512918717608-632f1f1a3b67?q=80&w=1600&auto=format&fit=crop",
+    status: "rented",
+    tenant: {
+      name: "Nguyen Minh Khoa",
+      avatar: "https://i.pravatar.cc/64?img=11",
+    },
+  }),
+  mk("r4", {
+    title: "1BR",
+    imgUrl:
+      "https://images.unsplash.com/photo-1586105251261-72a756497a12?q=80&w=1600&auto=format&fit=crop",
+  }),
+  mk("r5", {
+    title: "Loft",
+    imgUrl:
+      "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=1600&auto=format&fit=crop",
+  }),
+  mk("r6", {
+    title: "3BHK",
+    imgUrl:
+      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1600&auto=format&fit=crop",
+    status: "rented",
+    tenant: {
+      name: "Tran Bao Anh",
+      avatar: "https://i.pravatar.cc/64?img=21",
+    },
+  }),
 ];
 
 export default function LandlordPublished({ title = "My Published Rooms", rooms }) {
   const scrollRef = useRef(null);
-  useDragScrollX(scrollRef);    
+  const navigate = useNavigate();                 // ✅
+
+  useDragScrollX(scrollRef);
 
   const list = useMemo(
     () => (rooms && rooms.length ? rooms : FALLBACK_ROOMS).slice(0, 6),
@@ -46,9 +83,19 @@ export default function LandlordPublished({ title = "My Published Rooms", rooms 
 
   console.table(
     list.map(({ id, title, status, tenant }) => ({
-        id, title, status, hasTenant: !!tenant, tenantName: tenant?.name ?? null
+      id,
+      title,
+      status,
+      hasTenant: !!tenant,
+      tenantName: tenant?.name ?? null,
     }))
-    );
+  );
+
+  const openDetail = (room) => {
+    navigate(`/rooms/${room.id}`, {
+      state: { room, from: "landlord-dashboard" },   // ✅ pass room giống bên tenant
+    });
+  };
 
   return (
     <section className="ldb-panel">
@@ -56,7 +103,11 @@ export default function LandlordPublished({ title = "My Published Rooms", rooms 
       <hr className="ldb-sep" />
       <div ref={scrollRef} className="ldb-hscroll drag">
         {list.map((r) => (
-          <div key={r.id} className="ldb-item">
+          <div
+            key={r.id}
+            className="ldb-item"
+            onClick={() => openDetail(r)}             // ✅ click card → RoomDetail
+          >
             <PublishedRoomCard {...r} />
           </div>
         ))}

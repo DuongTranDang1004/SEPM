@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useNavigate } from "react";
 import RoomFilter from "../../components/room/RoomFilter";
 import RoomList from "../../components/room/RoomList";
 import ErrorBoundary from "../../components/ErrorBoundary";
@@ -198,6 +198,7 @@ const rooms = [
 const currency = (n) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
 
+
 export default function FindRoomPage() {
     const isTenant = currentUser.role === "tenant";
 
@@ -252,7 +253,7 @@ export default function FindRoomPage() {
 
       <ErrorBoundary>
         <RoomList
-            rooms={rooms}
+          rooms={rooms}
           filters={filters}
           currency={currency}
           isTenant={isTenant}

@@ -138,10 +138,8 @@ function LandlordDashboard() {
       <LandlordPublished
         title="My Published Rooms"
         rooms={myRooms.slice(0, 6)}
-        currency={currency}
-        // landlord không bookmark
-        canBookmark={false}
       />
+
     </div>
   );
 }
