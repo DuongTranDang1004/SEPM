@@ -99,7 +99,7 @@ function TenantSidebar({ isCollapsed, onToggle }) {
       <div className="p-4 border-t border-gray-200 space-y-2">
         {/* Account */}
         <button
-          onClick={() => navigate('/dashboard/account')}
+          onClick={() => navigate('/dashboard/tenant/account')}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
             isActive('account')
               ? 'bg-pink-100 text-pink-700'

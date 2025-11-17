@@ -6,7 +6,8 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import TenantDashboard from '../pages/tenant/TenantDashboard';
 import LandlordDashboard from '../pages/landlord/LandlordDashboard';
 import MessagePage from '../pages/shared/MessagePage';
-import AccountPage from '../pages/shared/AccountPage';
+import TenantAccountPage from '../pages/tenant/TenantAccountPage';
+import LandlordAccountPage from '../pages/landlord/LandlordAccountPage';
 import RoomDetailPage from '../pages/RoomDetailPage';
 
 // Placeholder components for future development
@@ -82,6 +83,7 @@ function AppRoutes() {
         <Route path="tenant/find-roommates" element={<FindRoommatesPage />} />
         <Route path="tenant/bookmarks" element={<BookmarksPage />} />
         <Route path="tenant/room/:roomId" element={<RoomDetailPage />} />
+        <Route path="tenant/account" element={<TenantAccountPage />} />
         
         {/* Landlord routes */}
         <Route path="landlord" element={<LandlordDashboard />} />
@@ -90,10 +92,10 @@ function AppRoutes() {
         <Route path="landlord/browse-rooms" element={<BrowseRoomsPage />} />
         <Route path="landlord/room/:roomId" element={<RoomDetailPage />} />
         <Route path="landlord/edit-room/:roomId" element={<UploadRoomPage />} />
+        <Route path="landlord/account" element={<LandlordAccountPage />} />
         
         {/* Shared routes (no sidebar) */}
         <Route path="messages" element={<MessagePage />} />
-        <Route path="account" element={<AccountPage />} />
       </Route>
       
       {/* Default route */}
