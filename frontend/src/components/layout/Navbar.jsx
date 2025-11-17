@@ -5,6 +5,10 @@ function Navbar({ onOpenMessenger, unreadCount = 3 }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Get user role from localStorage
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userRole = user.role; // 'TENANT' or 'LANDLORD'
+
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       localStorage.removeItem('user');
@@ -15,10 +19,14 @@ function Navbar({ onOpenMessenger, unreadCount = 3 }) {
 
   const isActive = (path) => location.pathname.includes(path);
 
+  // Dynamic routes based on role
+  const dashboardRoute = userRole === 'TENANT' ? '/dashboard/tenant' : '/dashboard/landlord';
+  const accountRoute = userRole === 'TENANT' ? '/dashboard/tenant/account' : '/dashboard/landlord/account';
+
   return (
     <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm">
       {/* Logo */}
-      <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
+      <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(dashboardRoute)}>
         <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-teal-400 rounded-full flex items-center justify-center">
           <span className="text-xl">🏠</span>
         </div>
@@ -29,11 +37,11 @@ function Navbar({ onOpenMessenger, unreadCount = 3 }) {
 
       {/* Navigation Items */}
       <div className="flex items-center gap-2">
-        {/* Dashboard/Home */}
+        {/* Dashboard/Home - Dynamic route based on role */}
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate(dashboardRoute)}
           className={`px-4 py-2 rounded-lg font-medium transition-all ${
-            location.pathname === '/dashboard'
+            location.pathname === dashboardRoute
               ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md'
               : 'text-gray-600 hover:bg-gray-100'
           }`}
@@ -57,9 +65,9 @@ function Navbar({ onOpenMessenger, unreadCount = 3 }) {
           </span>
         </button>
 
-        {/* Account */}
+        {/* Account - Dynamic route based on role */}
         <button
-          onClick={() => navigate('/dashboard/account')}
+          onClick={() => navigate(accountRoute)}
           className={`px-4 py-2 rounded-lg font-medium transition-all ${
             isActive('account')
               ? 'bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-md'

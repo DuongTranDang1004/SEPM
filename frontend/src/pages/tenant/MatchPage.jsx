@@ -1,86 +1,220 @@
 import React from 'react';
-import './MatchPage.css';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Heart, MessageSquare, ArrowLeft } from 'lucide-react';
 
 /**
- * MatchPage Component is displayed when two tenants bookmark each other
- * Shows two profile cards and a dialogue box of 'it's a match'
+ * MatchPage - Displayed when two tenants mutually like each other
+ * Can be used as a standalone page or modal
  */
 function MatchPage() {
-  // Tenant datas
-  const tenantA = {
-    id: 1,
-    name: "Jane Doe",
-    description: "Lorem ipsum dolor sit amet consectetur. Aliquet accumsan sed vestibulum vestibulum cras tempus.",
-    avatar: "https://via.placeholder.com/150/FF69B4/FFFFFF?text=Jane" // Placeholder
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get match data from navigation state or use mock data
+  const matchData = location.state || {
+    tenantA: {
+      id: 1,
+      name: "Jane Doe",
+      avatar: "https://i.pravatar.cc/200?img=1",
+      description: "Graduate student looking for a friendly roommate. I enjoy cooking and keeping the place tidy.",
+      budget: 450,
+      locations: ["District 1", "District 2"],
+      moveInDate: "2025-01-15"
+    },
+    tenantB: {
+      id: 2,
+      name: "John Smith",
+      avatar: "https://i.pravatar.cc/200?img=2",
+      description: "Software engineer with flexible hours. Non-smoker, love to cook, and enjoy occasional social gatherings.",
+      budget: 480,
+      locations: ["District 1", "Binh Thanh"],
+      moveInDate: "2025-01-20"
+    },
+    compatibility: 85,
+    matchedAt: new Date().toISOString()
   };
 
-  const tenantB = {
-    id: 2,
-    name: "John Smith",
-    description: "Lorem ipsum dolor sit amet consectetur. Aliquet accumsan sed vestibulum vestibulum cras tempus.",
-    avatar: "https://via.placeholder.com/150/4dc2f5/FFFFFF?text=John" // Placeholder
-  };
+  const { tenantA, tenantB, compatibility } = matchData;
 
-  // Placeholder Component of user profile
-  const ProfileMatchCard = ({ tenant }) => (
-    <div className="profile-match-card">
-      <h3 className="card-name">{tenant.name}</h3>
-      <div className="card-content">
-        <div className="card-description">
-          <p>{tenant.description}</p>
+  const ProfileCard = ({ tenant, position }) => (
+    <div className={`bg-white rounded-3xl p-6 shadow-2xl transform transition hover:scale-105 ${
+      position === 'left' ? 'lg:translate-x-4' : 'lg:-translate-x-4'
+    }`}>
+      {/* Avatar */}
+      <div className="flex justify-center mb-4">
+        <div className="relative">
+          <img
+            src={tenant.avatar}
+            alt={tenant.name}
+            className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+            onError={(e) => { e.target.src = "https://placehold.co/128x128/A78BFA/FFFFFF?text=Avatar"; }}
+          />
+          <div className="absolute -bottom-2 -right-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-full px-3 py-1 shadow-lg font-semibold text-sm">
+            ${tenant.budget}/mo
+          </div>
         </div>
-        <div className="card-avatar">
-          <img src={tenant.avatar} alt={`${tenant.name}'s avatar`} />
+      </div>
+
+      {/* Name */}
+      <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">{tenant.name}</h2>
+
+      {/* Description */}
+      <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 mb-4 border border-purple-100">
+        <p className="text-sm text-gray-700 leading-relaxed text-center">
+          {tenant.description}
+        </p>
+      </div>
+
+      {/* Details */}
+      <div className="space-y-2 text-sm">
+        <div className="flex items-center gap-2 text-gray-600">
+          <span className="font-semibold text-gray-700">📅 Move-in:</span>
+          <span>{tenant.moveInDate}</span>
+        </div>
+        <div className="flex flex-wrap gap-1 items-center">
+          <span className="font-semibold text-gray-700">📍 Locations:</span>
+          {tenant.locations.map((loc, idx) => (
+            <span key={idx} className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs">
+              {loc}
+            </span>
+          ))}
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="main-layout-flex-container">
-      
-      {/*Sidebar Placeholder
-      <aside className="sidebar-placeholder">
-        <h2 className="logo-sidebar">Broomate</h2>
-        <nav className="sidebar-nav">
-          <ul>
-            <li><a href="#find-roommates">Find Roommates</a></li>
-            <li><a href="#bookmarks-roommates">Bookmarks</a></li>
-            <li><a href="#blocked">Blocked</a></li>
-            <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid #eee' }} />
-            <li><a href="#rooms">Rooms</a></li>
-            <li><a href="#find-rooms">Find Rooms</a></li>
-            <li><a href="#bookmarks-rooms">Bookmarks</a></li>
-            <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid #eee' }} />
-            <li><a href="#chats">Chats</a></li>
-            <li><a href="#manage-chats">Manage Chats</a></li>
-          </ul>
-        </nav>
-        <div className="sign-out-placeholder">
-          Sign Out
-        </div>
-      </aside>
-      */}
+    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="max-w-6xl w-full py-8">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition bg-white px-4 py-2 rounded-lg shadow-md"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span className="font-medium">Back</span>
+        </button>
 
-      {/* Match card*/}
-      <main className="content-area-match-flex">
-        <div className="match-cards-container">
-          <ProfileMatchCard tenant={tenantA} />
-          <ProfileMatchCard tenant={tenantB} />
-          {/* "It's a match!" */}
-          <div className="match-overlay">
-            It's a match!
+        {/* Main Content */}
+        <div className="relative">
+          {/* Match Animation Background */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="animate-ping absolute w-32 h-32 rounded-full bg-pink-400 opacity-20"></div>
+            <div className="animate-pulse absolute w-48 h-48 rounded-full bg-purple-400 opacity-10"></div>
           </div>
 
+          {/* Profile Cards Container */}
+          <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <ProfileCard tenant={tenantA} position="left" />
+            <ProfileCard tenant={tenantB} position="right" />
+          </div>
+
+          {/* Match Overlay - Centered between cards */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 text-white rounded-3xl px-8 py-6 shadow-2xl transform rotate-[-5deg] animate-bounce">
+              <div className="flex items-center gap-3">
+                <Heart className="w-8 h-8" fill="currentColor" />
+                <div className="text-center">
+                  <h3 className="text-3xl font-black tracking-tight">It's a Match!</h3>
+                  <p className="text-pink-100 text-sm mt-1">{compatibility}% Compatible</p>
+                </div>
+                <Heart className="w-8 h-8" fill="currentColor" />
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Buttons */}
-        <div className="match-actions">
-          <button className="action-button return-button">Return</button>
-          <button className="action-button open-chat-button">Open Chat</button>
+        {/* Action Buttons */}
+        <div className="bg-white rounded-3xl p-8 shadow-2xl mt-8">
+          <div className="text-center mb-6">
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">What's Next?</h3>
+            <p className="text-gray-600">Start a conversation or continue exploring</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 max-w-2xl mx-auto">
+            <button
+              onClick={() => navigate('/dashboard/tenant/find-roommates')}
+              className="flex-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 font-semibold py-4 rounded-2xl hover:from-gray-200 hover:to-gray-300 transition transform hover:scale-105 flex items-center justify-center gap-2 shadow-lg"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Keep Swiping</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/dashboard/messages', { 
+                state: { 
+                  newChat: true, 
+                  recipientId: tenantB.id, 
+                  recipientName: tenantB.name 
+                } 
+              })}
+              className="flex-1 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 text-white font-semibold py-4 rounded-2xl hover:from-pink-600 hover:to-purple-600 transition transform hover:scale-105 flex items-center justify-center gap-2 shadow-lg animate-pulse"
+            >
+              <MessageSquare className="w-5 h-5" />
+              <span>Start Chatting</span>
+            </button>
+          </div>
+
+          {/* Match Stats */}
+          <div className="mt-8 grid grid-cols-3 gap-4 max-w-xl mx-auto">
+            <div className="text-center bg-gradient-to-br from-pink-50 to-purple-50 rounded-xl p-4 border border-pink-100">
+              <div className="text-2xl font-bold text-pink-600">{compatibility}%</div>
+              <div className="text-xs text-gray-600 mt-1">Compatibility</div>
+            </div>
+            <div className="text-center bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
+              <div className="text-2xl font-bold text-purple-600">
+                {tenantA.locations.filter(loc => tenantB.locations.includes(loc)).length}
+              </div>
+              <div className="text-xs text-gray-600 mt-1">Shared Locations</div>
+            </div>
+            <div className="text-center bg-gradient-to-br from-blue-50 to-teal-50 rounded-xl p-4 border border-blue-100">
+              <div className="text-2xl font-bold text-blue-600">
+                ${Math.abs(tenantA.budget - tenantB.budget)}
+              </div>
+              <div className="text-xs text-gray-600 mt-1">Budget Difference</div>
+            </div>
+          </div>
+
+          {/* Tips */}
+          <div className="mt-6 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-4 border border-yellow-200">
+            <p className="text-sm text-gray-700 text-center">
+              💡 <strong>Pro Tip:</strong> Start by discussing your move-in timeline and preferred locations!
+            </p>
+          </div>
         </div>
 
-      </main>
+        {/* Celebration Confetti Effect (CSS-only) */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 bg-pink-400 rounded-full animate-confetti"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: '-10px',
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${3 + Math.random() * 2}s`
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes confetti {
+          0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(100vh) rotate(360deg);
+            opacity: 0;
+          }
+        }
+        .animate-confetti {
+          animation: confetti linear infinite;
+        }
+      `}</style>
     </div>
   );
 }

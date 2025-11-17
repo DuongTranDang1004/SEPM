@@ -6,29 +6,13 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import TenantDashboard from '../pages/tenant/TenantDashboard';
 import LandlordDashboard from '../pages/landlord/LandlordDashboard';
 import MessagePage from '../pages/shared/MessagePage';
-import TenantAccountPage from '../pages/tenant/TenantAccountPage';
-import LandlordAccountPage from '../pages/landlord/LandlordAccountPage';
+import AccountPage from '../pages/shared/AccountPage'; // ✅ NEW: Unified dynamic account page
 import RoomDetailPage from '../pages/RoomDetailPage';
+import MatchPage from '../pages/tenant/MatchPage';
+import FindRoomsPage from '../pages/tenant/FindRoomsPage';
+import FindRoommatesPage from '../pages/tenant/FindRoommatesPage';
 
 // Placeholder components for future development
-const FindRoomsPage = () => (
-  <div className="h-full flex items-center justify-center p-8">
-    <div className="text-center">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">🔍 Find Rooms</h2>
-      <p className="text-gray-600">Browse and filter available rooms (Coming Soon)</p>
-    </div>
-  </div>
-);
-
-const FindRoommatesPage = () => (
-  <div className="h-full flex items-center justify-center p-8">
-    <div className="text-center">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">👥 Find Roommates</h2>
-      <p className="text-gray-600">Swipe and match with compatible roommates (Coming Soon)</p>
-    </div>
-  </div>
-);
-
 const BookmarksPage = () => (
   <div className="h-full flex items-center justify-center p-8">
     <div className="text-center">
@@ -82,8 +66,9 @@ function AppRoutes() {
         <Route path="tenant/find-rooms" element={<FindRoomsPage />} />
         <Route path="tenant/find-roommates" element={<FindRoommatesPage />} />
         <Route path="tenant/bookmarks" element={<BookmarksPage />} />
+        <Route path="tenant/match" element={<MatchPage />} />
         <Route path="tenant/room/:roomId" element={<RoomDetailPage />} />
-        <Route path="tenant/account" element={<TenantAccountPage />} />
+        <Route path="tenant/account" element={<AccountPage />} /> {/* ✅ CHANGED: Now uses unified AccountPage */}
         
         {/* Landlord routes */}
         <Route path="landlord" element={<LandlordDashboard />} />
@@ -92,7 +77,7 @@ function AppRoutes() {
         <Route path="landlord/browse-rooms" element={<BrowseRoomsPage />} />
         <Route path="landlord/room/:roomId" element={<RoomDetailPage />} />
         <Route path="landlord/edit-room/:roomId" element={<UploadRoomPage />} />
-        <Route path="landlord/account" element={<LandlordAccountPage />} />
+        <Route path="landlord/account" element={<AccountPage />} /> {/* ✅ CHANGED: Now uses unified AccountPage */}
         
         {/* Shared routes (no sidebar) */}
         <Route path="messages" element={<MessagePage />} />
