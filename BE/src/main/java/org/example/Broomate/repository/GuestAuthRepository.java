@@ -3,6 +3,7 @@ package org.example.Broomate.repository;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.firebase.cloud.FirestoreClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.Broomate.model.Account;
 import org.example.Broomate.model.Landlord;
@@ -11,20 +12,20 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-
+@RequiredArgsConstructor
 @Slf4j
 @Repository
 public class GuestAuthRepository {
 
     private static final String TENANTS_COLLECTION = "tenants";
     private static final String LANDLORDS_COLLECTION = "landlords";
+    private final Firestore firestore;
 
     // ========================================
     // FIND BY EMAIL (checks both collections)
     // ========================================
     public Optional<Account> findByEmail(String email) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
 
             // 1. Try to find in tenants collection
             QueryDocumentSnapshot tenantDoc = (QueryDocumentSnapshot) firestore
@@ -70,7 +71,6 @@ public class GuestAuthRepository {
     // ========================================
     public Tenant saveTenant(Tenant tenant) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             firestore.collection(TENANTS_COLLECTION)
                     .document(tenant.getId())
                     .set(tenant)
@@ -88,7 +88,6 @@ public class GuestAuthRepository {
     // ========================================
     public Landlord saveLandlord(Landlord landlord) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             firestore.collection(LANDLORDS_COLLECTION)
                     .document(landlord.getId())
                     .set(landlord)

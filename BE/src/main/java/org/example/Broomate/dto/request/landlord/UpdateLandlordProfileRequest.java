@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Schema(description = "Request to update landlord profile")
 public class UpdateLandlordProfileRequest {
 
     @NotBlank(message = "Name is required")
@@ -22,10 +23,10 @@ public class UpdateLandlordProfileRequest {
     @Schema(description = "Phone number", example = "0901234567")
     private String phone;
 
-    @Schema(description = "Avatar URL", example = "https://example.com/avatar.jpg")
-    private String avatarUrl;
-
     @Size(max = 500, message = "Description cannot exceed 500 characters")
     @Schema(description = "Profile description", example = "Experienced landlord with 10+ properties")
     private String description;
+
+    @Schema(description = "Set to true to remove current avatar")
+    private Boolean removeAvatar;
 }

@@ -1,96 +1,142 @@
-import React, { useState } from 'react';
-import { Search } from 'lucide-react';
-import FindRoommatesPage from './FindRoommatesPage';
-import FindRoomPage from './FindRoomPage';
-import './TenantDashboard.css'; // Load separated CSS file
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
-// Modal Component: Handles popup background and close button
-const Modal = ({ isOpen, onClose, children, title }) => {
-  if (!isOpen) return null;
+function TenantDashboard() {
+  const navigate = useNavigate();
+
+  // Navigation handlers
+  const handleFindRooms = () => {
+    navigate('/dashboard/tenant/find-rooms');
+  };
+
+  const handleFindRoommates = () => {
+    navigate('/dashboard/tenant/find-roommates');
+  };
+
+  const handleViewBookmarks = () => {
+    navigate('/dashboard/tenant/bookmarks');
+  };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div 
-        className="modal-content"
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
-      >
-        <div className="modal-header">
-          <h2 className="modal-title">{title}</h2>
-          <button onClick={onClose} className="modal-close-button">
-            &times;
+    <div className="h-full overflow-y-auto p-8 bg-gradient-to-br from-teal-50 to-white">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome, Tenant!</h1>
+          <p className="text-gray-600">Find your perfect room and ideal roommate</p>
+        </div>
+
+        {/* Quick Stats - Now Clickable! */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <button
+            onClick={handleViewBookmarks}
+            className="bg-white rounded-2xl p-6 shadow-lg border border-teal-100 hover:shadow-xl transition transform hover:scale-105 text-left"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Bookmarks</h3>
+              <span className="text-3xl">💾</span>
+            </div>
+            <p className="text-3xl font-bold text-teal-600">5</p>
+            <p className="text-sm text-gray-500 mt-2">Saved rooms</p>
+          </button>
+
+          <button
+            onClick={handleFindRoommates}
+            className="bg-white rounded-2xl p-6 shadow-lg border border-pink-100 hover:shadow-xl transition transform hover:scale-105 text-left"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Matches</h3>
+              <span className="text-3xl">👥</span>
+            </div>
+            <p className="text-3xl font-bold text-pink-600">3</p>
+            <p className="text-sm text-gray-500 mt-2">Potential roommates</p>
+          </button>
+
+          <button
+            onClick={() => navigate('/dashboard/messages')}
+            className="bg-white rounded-2xl p-6 shadow-lg border border-purple-100 hover:shadow-xl transition transform hover:scale-105 text-left"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Messages</h3>
+              <span className="text-3xl">💬</span>
+            </div>
+            <p className="text-3xl font-bold text-purple-600">8</p>
+            <p className="text-sm text-gray-500 mt-2">Unread conversations</p>
           </button>
         </div>
-        {children}
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-2xl p-8 shadow-lg mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <button
+              onClick={handleFindRooms}
+              className="flex items-center gap-4 p-6 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl hover:shadow-xl transition transform hover:scale-105"
+            >
+              <span className="text-4xl">🔍</span>
+              <div className="text-left">
+                <h3 className="font-bold text-lg">Find Rooms</h3>
+                <p className="text-sm text-teal-100">Browse available listings</p>
+              </div>
+            </button>
+
+            <button
+              onClick={handleFindRoommates}
+              className="flex items-center gap-4 p-6 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-xl hover:shadow-xl transition transform hover:scale-105"
+            >
+              <span className="text-4xl">👥</span>
+              <div className="text-left">
+                <h3 className="font-bold text-lg">Find Roommates</h3>
+                <p className="text-sm text-pink-100">Swipe and match</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-white rounded-2xl p-8 shadow-lg">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Activity</h2>
+          <div className="space-y-4">
+            <button
+              onClick={() => navigate('/dashboard/tenant/find-roommates')}
+              className="w-full flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition text-left"
+            >
+              <span className="text-2xl">✅</span>
+              <div className="flex-1">
+                <p className="font-semibold text-gray-900">New match!</p>
+                <p className="text-sm text-gray-600">You matched with Sarah Miller - 85% compatibility</p>
+              </div>
+              <span className="text-xs text-gray-500">2 hours ago</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/dashboard/tenant/room/123')}
+              className="w-full flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition text-left"
+            >
+              <span className="text-2xl">💾</span>
+              <div className="flex-1">
+                <p className="font-semibold text-gray-900">Room bookmarked</p>
+                <p className="text-sm text-gray-600">Cozy studio in District 1 - $450/month</p>
+              </div>
+              <span className="text-xs text-gray-500">5 hours ago</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/dashboard/messages')}
+              className="w-full flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition text-left"
+            >
+              <span className="text-2xl">💬</span>
+              <div className="flex-1">
+                <p className="font-semibold text-gray-900">New message</p>
+                <p className="text-sm text-gray-600">John Doe sent you a message</p>
+              </div>
+              <span className="text-xs text-gray-500">Yesterday</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
-};
-
-/**
- * TenantDashboard: Tenant Dashboard page.
- * Toggles Broomate search and Room search functionalities as modals.
- */
-const TenantDashboard = () => {
-  const [isRoommatesModalOpen, setRoommatesModalOpen] = useState(false);
-  const [isRoomsModalOpen, setRoomsModalOpen] = useState(false);
-
-  // Modal toggle functions
-  const toggleRoommatesModal = () => setRoommatesModalOpen(!isRoommatesModalOpen);
-  const toggleRoomsModal = () => setRoomsModalOpen(!isRoomsModalOpen);
-
-  return (
-    <div className="tenant-dashboard-container">
-      <h1 className="dashboard-title">Tenant Dashboard</h1>
-
-      {/* 1. Broomate Search Card (Coral - Find Roommates) */}
-      <div className="dashboard-card dashboard-card-broomate">
-        <h2 className="card-title card-title-broomate">Looking for Broomates?</h2>
-        <p className="card-description card-description-broomate">
-          Lorem ipsum dolor sit amet consectetur. Aliquat accumsan sed vestibulum vestibulum cras tempus.
-        </p>
-        <button
-          onClick={toggleRoommatesModal}
-          className="search-button search-button-broomate"
-        >
-          <span>Search</span>
-          <Search size={20} />
-        </button>
-      </div>
-
-      {/* 2. Room Search Card (Teal - Find Rooms) */}
-      <div className="dashboard-card dashboard-card-room">
-        <h2 className="card-title card-title-room">Looking for Rooms?</h2>
-        <p className="card-description card-description-room">
-          Lorem ipsum dolor sit amet consectetur. Aliquat accumsan sed vestibulum vestibulum cras tempus.
-        </p>
-        <button
-          onClick={toggleRoomsModal}
-          className="search-button search-button-room"
-        >
-          <span>Search</span>
-          <Search size={20} />
-        </button>
-      </div>
-
-      {/* Renders FindRoommatesPage inside a Modal */}
-      <Modal 
-        isOpen={isRoommatesModalOpen} 
-        onClose={toggleRoommatesModal} 
-        title="Find Roommates (Swipe)"
-      >
-        <FindRoommatesPage />
-      </Modal>
-
-      {/* Renders FindRoomsPage inside a Modal */}
-      <Modal 
-        isOpen={isRoomsModalOpen} 
-        onClose={toggleRoomsModal} 
-        title="Find Available Rooms"
-      >
-        <FindRoomPage />
-      </Modal>
-    </div>
-  );
-};
+}
 
 export default TenantDashboard;

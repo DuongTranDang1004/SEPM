@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Configuration;
 import javax.annotation.PostConstruct;
 import java.io.FileInputStream;
 import java.io.IOException;
-
 @Configuration
 public class FirebaseConfig {
 
@@ -22,30 +21,25 @@ public class FirebaseConfig {
     @Value("${firebase.database.url}")
     private String databaseUrl;
 
+    @Bean
+    public FirebaseApp firebaseApp() throws IOException {
+        FileInputStream serviceAccount = new FileInputStream(credentialsPath);
 
+        FirebaseOptions options = FirebaseOptions.builder()
+                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                .setDatabaseUrl(databaseUrl)
+                .build();
 
-    @PostConstruct
-    public void initialize() {
-        try {
-            FileInputStream serviceAccount = new FileInputStream(credentialsPath);
-
-            FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                    .setDatabaseUrl(databaseUrl)
-                    .build();
-
-            if (FirebaseApp.getApps().isEmpty()) {
-                FirebaseApp.initializeApp(options);
-                System.out.println("Firebase initialized successfully!");
-            }
-        } catch (IOException e) {
-            System.err.println("Error initializing Firebase: " + e.getMessage());
-            e.printStackTrace();
+        if (FirebaseApp.getApps().isEmpty()) {
+            return FirebaseApp.initializeApp(options);
+        } else {
+            return FirebaseApp.getInstance();
         }
     }
 
     @Bean
-    public Firestore firestore() {
-        return FirestoreClient.getFirestore();
+    public Firestore firestore(FirebaseApp firebaseApp) {
+        return FirestoreClient.getFirestore(firebaseApp);
     }
+
 }

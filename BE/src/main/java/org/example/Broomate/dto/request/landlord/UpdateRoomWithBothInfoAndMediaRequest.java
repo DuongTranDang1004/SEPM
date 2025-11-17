@@ -7,12 +7,15 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.example.Broomate.model.Room;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "Request to update room information (no media files in this request body). Media files are handled in separate request multipart form data ")
-public class UpdateRoomRequest {
+@Schema(description = "Request to update room with both info and media files")
+public class UpdateRoomWithBothInfoAndMediaRequest {
 
+    // Basic room information
     @NotBlank(message = "Title is required")
     @Schema(description = "Room title", example = "Cozy 2BR Apartment")
     private String title;
@@ -54,7 +57,20 @@ public class UpdateRoomRequest {
     @Schema(description = "Has window", example = "true")
     private Boolean hasWindow;
 
-    @NotNull(message = "Status is required")
     @Schema(description = "Room status", example = "PUBLISHED")
     private Room.RoomStatus status;
+
+    // Media files to remove (URLs)
+    @Schema(description = "URLs of images to delete",
+            example = "[\"https://supabase.co/storage/.../image1.jpg\"]")
+    private List<String> imagesToRemove;
+
+    @Schema(description = "URLs of videos to delete")
+    private List<String> videosToRemove;
+
+    @Schema(description = "URLs of documents to delete")
+    private List<String> documentsToRemove;
+
+    @Schema(description = "Set to true to replace/remove thumbnail")
+    private Boolean replaceThumbnail;
 }

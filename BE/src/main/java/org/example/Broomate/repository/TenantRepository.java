@@ -1,16 +1,11 @@
 package org.example.Broomate.repository;
 
 import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
-import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.Broomate.model.Tenant;
-import org.example.Broomate.model.Match;
-import org.example.Broomate.model.Swipe;
-import org.example.Broomate.model.Conversation;
+import org.example.Broomate.model.*;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -21,12 +16,14 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
+@RequiredArgsConstructor
 public class TenantRepository {
 
     private static final String TENANTS_COLLECTION = "tenants";
     private static final String SWIPES_COLLECTION = "swipes";
     private static final String MATCHES_COLLECTION = "matches";
     private static final String CONVERSATIONS_COLLECTION = "conversations";
+    private final Firestore firestore;
 
     // ========================================
     // TENANT CRUD OPERATIONS
@@ -37,7 +34,6 @@ public class TenantRepository {
      */
     public Optional<Tenant> findById(String tenantId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             DocumentSnapshot document =  firestore
                     .collection(TENANTS_COLLECTION)
                     .document(tenantId)
@@ -60,7 +56,6 @@ public class TenantRepository {
      */
     public List<Tenant> findAllActiveTenants() {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             QuerySnapshot querySnapshot = firestore.collection(TENANTS_COLLECTION)
                     .whereEqualTo("role", "TENANT")
                     .whereEqualTo("active", true)
@@ -81,7 +76,6 @@ public class TenantRepository {
      */
     public Tenant update(String tenantId, Tenant tenant) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             tenant.setUpdatedAt(Timestamp.now());
             
             firestore.collection(TENANTS_COLLECTION)
@@ -105,7 +99,6 @@ public class TenantRepository {
      */
     public List<Swipe> findSwipesBySwiperId(String swiperId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             QuerySnapshot querySnapshot = firestore.collection(SWIPES_COLLECTION)
                     .whereEqualTo("swiperId", swiperId)
                     .get()
@@ -125,7 +118,6 @@ public class TenantRepository {
      */
     public Optional<Swipe> findSwipe(String swiperId, String targetId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             QuerySnapshot querySnapshot = firestore.collection(SWIPES_COLLECTION)
                     .whereEqualTo("swiperId", swiperId)
                     .whereEqualTo("targetId", targetId)
@@ -148,7 +140,6 @@ public class TenantRepository {
      */
     public Swipe saveSwipe(Swipe swipe) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             firestore.collection(SWIPES_COLLECTION)
                     .document(swipe.getId())
                     .set(swipe)
@@ -170,8 +161,7 @@ public class TenantRepository {
      */
     public List<Match> findActiveMatchesByTenantId(String tenantId) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
-            
+
             // Need to query twice since Firestore doesn't support OR on different fields
             QuerySnapshot matches1 = firestore.collection(MATCHES_COLLECTION)
                     .whereEqualTo("tenant1Id", tenantId)
@@ -205,7 +195,6 @@ public class TenantRepository {
      */
     public Match saveMatch(Match match) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             firestore.collection(MATCHES_COLLECTION)
                     .document(match.getId())
                     .set(match)
@@ -227,7 +216,6 @@ public class TenantRepository {
      */
     public Conversation saveConversation(Conversation conversation) {
         try {
-            Firestore firestore = FirestoreClient.getFirestore();
             firestore.collection(CONVERSATIONS_COLLECTION)
                     .document(conversation.getId())
                     .set(conversation)
@@ -237,6 +225,96 @@ public class TenantRepository {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error saving conversation", e);
             throw new RuntimeException("Failed to save conversation", e);
+        }
+    }
+    // Add to your existing TenantRepository class
+
+    /**
+     * Save a bookmark
+     */
+    public Bookmark saveBookmark(Bookmark bookmark) {
+        try {
+            DocumentReference docRef = firestore.collection("bookmarks").document(bookmark.getId());
+            docRef.set(bookmark).get();
+            log.info("Bookmark saved: {}", bookmark.getId());
+            return bookmark;
+        } catch (Exception e) {
+            log.error("Error saving bookmark: {}", bookmark.getId(), e);
+            throw new RuntimeException("Failed to save bookmark", e);
+        }
+    }
+
+    /**
+     * Find bookmark by tenant and room
+     */
+    public Optional<Bookmark> findBookmarkByTenantAndRoom(String tenantId, String roomId) {
+        try {
+            Query query = firestore.collection("bookmarks")
+                    .whereEqualTo("tenantId", tenantId)
+                    .whereEqualTo("roomId", roomId)
+                    .limit(1);
+
+            QuerySnapshot querySnapshot = query.get().get();
+
+            if (!querySnapshot.isEmpty()) {
+                DocumentSnapshot document = querySnapshot.getDocuments().get(0);
+                return Optional.of(document.toObject(Bookmark.class));
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            log.error("Error finding bookmark for tenant {} and room {}", tenantId, roomId, e);
+            throw new RuntimeException("Failed to find bookmark", e);
+        }
+    }
+
+    /**
+     * Find all bookmarks by tenant
+     */
+    public List<Bookmark> findBookmarksByTenantId(String tenantId) {
+        try {
+            Query query = firestore.collection("bookmarks")
+                    .whereEqualTo("tenantId", tenantId)
+                    .orderBy("createdAt", Query.Direction.DESCENDING);
+
+            QuerySnapshot querySnapshot = query.get().get();
+
+            return querySnapshot.getDocuments().stream()
+                    .map(doc -> doc.toObject(Bookmark.class))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error finding bookmarks for tenant: {}", tenantId, e);
+            throw new RuntimeException("Failed to retrieve bookmarks", e);
+        }
+    }
+
+    /**
+     * Delete bookmark
+     */
+    public void deleteBookmark(String bookmarkId) {
+        try {
+            firestore.collection("bookmarks").document(bookmarkId).delete().get();
+            log.info("Bookmark deleted: {}", bookmarkId);
+        } catch (Exception e) {
+            log.error("Error deleting bookmark: {}", bookmarkId, e);
+            throw new RuntimeException("Failed to delete bookmark", e);
+        }
+    }
+
+    /**
+     * Find room by ID (if not already in your repository)
+     */
+    public Optional<Room> findRoomById(String roomId) {
+        try {
+            DocumentReference docRef = firestore.collection("rooms").document(roomId);
+            DocumentSnapshot document = docRef.get().get();
+
+            if (document.exists()) {
+                return Optional.of(document.toObject(Room.class));
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            log.error("Error finding room by ID: {}", roomId, e);
+            throw new RuntimeException("Failed to retrieve room", e);
         }
     }
 }
