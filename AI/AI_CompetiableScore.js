@@ -1,7 +1,7 @@
 // --- CONFIGURATION ---
 // API Key is not needed; Canvas will provide it automatically.
 // If running locally (outside Canvas), replace "" with your actual API key.
-const API_KEY = "AIzaSyByOpIi8DpLNFrDaOuvv0ti3Uh8O7mLGPA"; 
+const API_KEY = ""
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=" + API_KEY;
 
 // --- STATE MANAGEMENT ---
