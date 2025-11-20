@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   MapPin, DollarSign, Calendar, Bookmark, Search, 
-  SlidersHorizontal, ChevronLeft, Filter, X 
+  SlidersHorizontal, ChevronLeft, Filter, X, Loader
 } from 'lucide-react';
 
 /**
  * FindRoomsPage - Browse and filter available rooms
+ * Connected to real backend API
  */
 function FindRoomsPage() {
   const navigate = useNavigate();
@@ -14,6 +15,9 @@ function FindRoomsPage() {
   const [rooms, setRooms] = useState([]);
   const [filteredRooms, setFilteredRooms] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [bookmarkedRoomIds, setBookmarkedRoomIds] = useState(new Set());
 
   const [filters, setFilters] = useState({
     priceMin: '',
@@ -21,8 +25,8 @@ function FindRoomsPage() {
     districts: [],
     minStayMonths: '',
     hasWindow: false,
-    hasWashingMachine: false,
-    bookmarkedOnly: false,
+    bedroomsMin: '',
+    toiletsMin: '',
     sortBy: 'price-asc' // price-asc, price-desc, newest
   });
 
@@ -33,196 +37,143 @@ function FindRoomsPage() {
     'Go Vap', 'Thu Duc', 'Tan Phu'
   ];
 
-  // Mock room data
+  // Fetch rooms from API
   useEffect(() => {
-    const mockRooms = [
-      {
-        id: 1,
-        name: "Cozy Studio in District 1",
-        image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop",
-        address: "123 Nguyen Hue St, District 1",
-        district: "District 1",
-        minStayMonths: 6,
-        price: 450,
-        landlord: { name: "John Doe", avatar: "https://i.pravatar.cc/50?img=10" },
-        hasWindow: true,
-        hasWashingMachine: true,
-        hasAircon: true,
-        squareMeters: 25,
-        isBookmarked: false,
-        postedDate: "2024-11-10"
-      },
-      {
-        id: 2,
-        name: "Modern Apartment in Binh Thanh",
-        image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop",
-        address: "456 Xo Viet Nghe Tinh, Binh Thanh",
-        district: "Binh Thanh",
-        minStayMonths: 3,
-        price: 550,
-        landlord: { name: "Jane Smith", avatar: "https://i.pravatar.cc/50?img=11" },
-        hasWindow: true,
-        hasWashingMachine: true,
-        hasAircon: true,
-        squareMeters: 35,
-        isBookmarked: true,
-        postedDate: "2024-11-12"
-      },
-      {
-        id: 3,
-        name: "Bright Room in District 2",
-        image: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop",
-        address: "789 Thao Dien, District 2",
-        district: "District 2",
-        minStayMonths: 12,
-        price: 600,
-        landlord: { name: "Mike Johnson", avatar: "https://i.pravatar.cc/50?img=12" },
-        hasWindow: true,
-        hasWashingMachine: false,
-        hasAircon: true,
-        squareMeters: 30,
-        isBookmarked: false,
-        postedDate: "2024-11-08"
-      },
-      {
-        id: 4,
-        name: "Spacious Shared Room in District 7",
-        image: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400&h=300&fit=crop",
-        address: "321 Nguyen Van Linh, District 7",
-        district: "District 7",
-        minStayMonths: 6,
-        price: 380,
-        landlord: { name: "Anna Lee", avatar: "https://i.pravatar.cc/50?img=13" },
-        hasWindow: true,
-        hasWashingMachine: true,
-        hasAircon: false,
-        squareMeters: 28,
-        isBookmarked: true,
-        postedDate: "2024-11-15"
-      },
-      {
-        id: 5,
-        name: "Luxury Apartment in District 3",
-        image: "https://images.unsplash.com/photo-1502672023488-70e25813eb80?w=400&h=300&fit=crop",
-        address: "555 Vo Van Tan, District 3",
-        district: "District 3",
-        minStayMonths: 12,
-        price: 700,
-        landlord: { name: "David Park", avatar: "https://i.pravatar.cc/50?img=14" },
-        hasWindow: true,
-        hasWashingMachine: true,
-        hasAircon: true,
-        squareMeters: 45,
-        isBookmarked: false,
-        postedDate: "2024-11-14"
-      },
-      {
-        id: 6,
-        name: "Affordable Room in Tan Binh",
-        image: "https://images.unsplash.com/photo-1536376072261-38c75010e6c9?w=400&h=300&fit=crop",
-        address: "888 Hoang Van Thu, Tan Binh",
-        district: "Tan Binh",
-        minStayMonths: 3,
-        price: 320,
-        landlord: { name: "Lisa Chen", avatar: "https://i.pravatar.cc/50?img=15" },
-        hasWindow: false,
-        hasWashingMachine: true,
-        hasAircon: true,
-        squareMeters: 20,
-        isBookmarked: false,
-        postedDate: "2024-11-16"
-      },
-      {
-        id: 7,
-        name: "Charming Studio in Phu Nhuan",
-        image: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&h=300&fit=crop",
-        address: "234 Phan Dinh Phung, Phu Nhuan",
-        district: "Phu Nhuan",
-        minStayMonths: 6,
-        price: 480,
-        landlord: { name: "Tom Wilson", avatar: "https://i.pravatar.cc/50?img=16" },
-        hasWindow: true,
-        hasWashingMachine: false,
-        hasAircon: true,
-        squareMeters: 26,
-        isBookmarked: false,
-        postedDate: "2024-11-13"
-      },
-      {
-        id: 8,
-        name: "Premium Loft in District 1",
-        image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=400&h=300&fit=crop",
-        address: "999 Le Loi, District 1",
-        district: "District 1",
-        minStayMonths: 12,
-        price: 850,
-        landlord: { name: "Sarah Kim", avatar: "https://i.pravatar.cc/50?img=17" },
-        hasWindow: true,
-        hasWashingMachine: true,
-        hasAircon: true,
-        squareMeters: 50,
-        isBookmarked: false,
-        postedDate: "2024-11-17"
-      }
-    ];
-    setRooms(mockRooms);
-    setFilteredRooms(mockRooms);
+    fetchRooms();
+    fetchBookmarks();
   }, []);
+
+  const fetchRooms = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch('http://localhost:8080/api/user/rooms', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          navigate('/login');
+          return;
+        }
+        throw new Error('Failed to fetch rooms');
+      }
+
+      const data = await response.json();
+      console.log('Fetched rooms:', data); // Debug log
+      
+      setRooms(data.rooms || []);
+      setFilteredRooms(data.rooms || []);
+    } catch (err) {
+      console.error('Error fetching rooms:', err);
+      setError('Failed to load rooms. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchBookmarks = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8080/api/tenant/bookmarks', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const bookmarks = await response.json();
+        const bookmarkedIds = new Set(bookmarks.map(b => b.roomId));
+        setBookmarkedRoomIds(bookmarkedIds);
+      }
+    } catch (err) {
+      console.error('Error fetching bookmarks:', err);
+    }
+  };
 
   // Apply filters
   useEffect(() => {
     let filtered = [...rooms];
 
-    // Search query
+    // Search query - search in title, description, and address
     if (searchQuery) {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(room =>
-        room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        room.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        room.district.toLowerCase().includes(searchQuery.toLowerCase())
+        room.title?.toLowerCase().includes(query) ||
+        room.description?.toLowerCase().includes(query) ||
+        room.address?.toLowerCase().includes(query)
       );
     }
 
     // Price range
     if (filters.priceMin) {
-      filtered = filtered.filter(room => room.price >= parseInt(filters.priceMin));
+      filtered = filtered.filter(room => room.rentPricePerMonth >= parseFloat(filters.priceMin));
     }
     if (filters.priceMax) {
-      filtered = filtered.filter(room => room.price <= parseInt(filters.priceMax));
+      filtered = filtered.filter(room => room.rentPricePerMonth <= parseFloat(filters.priceMax));
     }
 
-    // Districts
+    // Districts - extract district from address
     if (filters.districts.length > 0) {
-      filtered = filtered.filter(room => filters.districts.includes(room.district));
+      filtered = filtered.filter(room => {
+        if (!room.address) return false;
+        return filters.districts.some(district => 
+          room.address.toLowerCase().includes(district.toLowerCase())
+        );
+      });
     }
 
     // Min stay
     if (filters.minStayMonths) {
-      filtered = filtered.filter(room => room.minStayMonths <= parseInt(filters.minStayMonths));
+      filtered = filtered.filter(room => 
+        room.minimumStayMonths <= parseInt(filters.minStayMonths)
+      );
     }
 
-    // Amenities
+    // Bedrooms minimum
+    if (filters.bedroomsMin) {
+      filtered = filtered.filter(room => 
+        room.numberOfBedRooms >= parseInt(filters.bedroomsMin)
+      );
+    }
+
+    // Toilets minimum
+    if (filters.toiletsMin) {
+      filtered = filtered.filter(room => 
+        room.numberOfToilets >= parseInt(filters.toiletsMin)
+      );
+    }
+
+    // Has window
     if (filters.hasWindow) {
       filtered = filtered.filter(room => room.hasWindow);
-    }
-    if (filters.hasWashingMachine) {
-      filtered = filtered.filter(room => room.hasWashingMachine);
-    }
-
-    // Bookmarked only
-    if (filters.bookmarkedOnly) {
-      filtered = filtered.filter(room => room.isBookmarked);
     }
 
     // Sort
     switch (filters.sortBy) {
       case 'price-asc':
-        filtered.sort((a, b) => a.price - b.price);
+        filtered.sort((a, b) => a.rentPricePerMonth - b.rentPricePerMonth);
         break;
       case 'price-desc':
-        filtered.sort((a, b) => b.price - a.price);
+        filtered.sort((a, b) => b.rentPricePerMonth - a.rentPricePerMonth);
         break;
       case 'newest':
-        filtered.sort((a, b) => new Date(b.postedDate) - new Date(a.postedDate));
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
       default:
         break;
@@ -231,12 +182,46 @@ function FindRoomsPage() {
     setFilteredRooms(filtered);
   }, [filters, searchQuery, rooms]);
 
-  const toggleBookmark = (roomId) => {
-    setRooms(prevRooms =>
-      prevRooms.map(room =>
-        room.id === roomId ? { ...room, isBookmarked: !room.isBookmarked } : room
-      )
-    );
+  const toggleBookmark = async (roomId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const isBookmarked = bookmarkedRoomIds.has(roomId);
+
+      if (isBookmarked) {
+        // Unbookmark
+        const response = await fetch(`http://localhost:8080/api/tenant/bookmarks/rooms/${roomId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          setBookmarkedRoomIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(roomId);
+            return newSet;
+          });
+        }
+      } else {
+        // Bookmark
+        const response = await fetch(`http://localhost:8080/api/tenant/bookmarks/rooms/${roomId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          setBookmarkedRoomIds(prev => new Set(prev).add(roomId));
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling bookmark:', err);
+      alert('Failed to update bookmark. Please try again.');
+    }
   };
 
   const toggleDistrict = (district) => {
@@ -255,8 +240,8 @@ function FindRoomsPage() {
       districts: [],
       minStayMonths: '',
       hasWindow: false,
-      hasWashingMachine: false,
-      bookmarkedOnly: false,
+      bedroomsMin: '',
+      toiletsMin: '',
       sortBy: 'price-asc'
     });
     setSearchQuery('');
@@ -267,9 +252,43 @@ function FindRoomsPage() {
     (filters.priceMax ? 1 : 0) +
     filters.districts.length +
     (filters.minStayMonths ? 1 : 0) +
-    (filters.hasWindow ? 1 : 0) +
-    (filters.hasWashingMachine ? 1 : 0) +
-    (filters.bookmarkedOnly ? 1 : 0);
+    (filters.bedroomsMin ? 1 : 0) +
+    (filters.toiletsMin ? 1 : 0) +
+    (filters.hasWindow ? 1 : 0);
+
+  // Extract district from address
+  const extractDistrict = (address) => {
+    if (!address) return 'Unknown';
+    const districtMatch = address.match(/District \d+|Binh Thanh|Phu Nhuan|Tan Binh|Go Vap|Thu Duc|Tan Phu/i);
+    return districtMatch ? districtMatch[0] : 'HCMC';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-blue-50">
+        <div className="text-center">
+          <Loader className="w-12 h-12 text-teal-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Loading rooms...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-blue-50 p-4">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={fetchRooms}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-teal-50 to-blue-50">
@@ -343,7 +362,7 @@ function FindRoomsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Price Range */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Price Range ($/month)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Price Range (VND/month)</label>
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -374,6 +393,18 @@ function FindRoomsPage() {
                   />
                 </div>
 
+                {/* Room Specs */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Min. Bedrooms</label>
+                  <input
+                    type="number"
+                    placeholder="e.g., 2"
+                    value={filters.bedroomsMin}
+                    onChange={(e) => setFilters({ ...filters, bedroomsMin: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
                 {/* Sort By */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
@@ -387,39 +418,32 @@ function FindRoomsPage() {
                     <option value="newest">Newest First</option>
                   </select>
                 </div>
+              </div>
 
-                {/* Quick Filters */}
+              {/* Additional Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Min. Toilets</label>
+                  <input
+                    type="number"
+                    placeholder="e.g., 1"
+                    value={filters.toiletsMin}
+                    onChange={(e) => setFilters({ ...filters, toiletsMin: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Quick Filters</label>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={filters.hasWindow}
-                        onChange={(e) => setFilters({ ...filters, hasWindow: e.target.checked })}
-                        className="w-4 h-4 text-teal-600 rounded"
-                      />
-                      <span className="text-sm text-gray-700">Has Window</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={filters.hasWashingMachine}
-                        onChange={(e) => setFilters({ ...filters, hasWashingMachine: e.target.checked })}
-                        className="w-4 h-4 text-teal-600 rounded"
-                      />
-                      <span className="text-sm text-gray-700">Has Washing Machine</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={filters.bookmarkedOnly}
-                        onChange={(e) => setFilters({ ...filters, bookmarkedOnly: e.target.checked })}
-                        className="w-4 h-4 text-teal-600 rounded"
-                      />
-                      <span className="text-sm text-gray-700">Bookmarked Only</span>
-                    </label>
-                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.hasWindow}
+                      onChange={(e) => setFilters({ ...filters, hasWindow: e.target.checked })}
+                      className="w-4 h-4 text-teal-600 rounded"
+                    />
+                    <span className="text-sm text-gray-700">Has Window</span>
+                  </label>
                 </div>
               </div>
 
@@ -462,13 +486,19 @@ function FindRoomsPage() {
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🏠</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No rooms found</h3>
-            <p className="text-gray-600 mb-4">Try adjusting your filters or search query</p>
-            <button
-              onClick={clearFilters}
-              className="bg-teal-500 text-white px-6 py-2 rounded-lg hover:bg-teal-600 transition"
-            >
-              Clear Filters
-            </button>
+            <p className="text-gray-600 mb-4">
+              {searchQuery || activeFilterCount > 0 
+                ? 'Try adjusting your filters or search query'
+                : 'No rooms available at the moment'}
+            </p>
+            {(searchQuery || activeFilterCount > 0) && (
+              <button
+                onClick={clearFilters}
+                className="bg-teal-500 text-white px-6 py-2 rounded-lg hover:bg-teal-600 transition"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -481,44 +511,68 @@ function FindRoomsPage() {
                   {/* Image */}
                   <div className="relative sm:w-48 h-48 sm:h-auto flex-shrink-0">
                     <img
-                      src={room.image}
-                      alt={room.name}
+                      src={room.thumbnailUrl || room.imageUrls?.[0] || 'https://placehold.co/400x300/E0E0E0/666666?text=No+Image'}
+                      alt={room.title}
                       className="w-full h-full object-cover cursor-pointer"
                       onClick={() => navigate(`/dashboard/tenant/room/${room.id}`)}
+                      onError={(e) => { 
+                        e.target.src = 'https://placehold.co/400x300/E0E0E0/666666?text=No+Image'; 
+                      }}
                     />
                     <button
                       onClick={() => toggleBookmark(room.id)}
                       className={`absolute top-3 right-3 p-2 rounded-full shadow-lg transition ${
-                        room.isBookmarked
+                        bookmarkedRoomIds.has(room.id)
                           ? 'bg-teal-500 text-white'
                           : 'bg-white text-gray-600 hover:bg-gray-100'
                       }`}
                     >
-                      <Bookmark className="w-5 h-5" fill={room.isBookmarked ? 'currentColor' : 'none'} />
+                      <Bookmark 
+                        className="w-5 h-5" 
+                        fill={bookmarkedRoomIds.has(room.id) ? 'currentColor' : 'none'} 
+                      />
                     </button>
+                    
+                    {/* Status Badge */}
+                    {room.status && room.status !== 'PUBLISHED' && (
+                      <div className="absolute top-3 left-3 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded">
+                        {room.status}
+                      </div>
+                    )}
                   </div>
 
                   {/* Content */}
                   <div className="flex-1 p-4">
                     <h3
-                      className="text-lg font-bold text-gray-900 mb-2 cursor-pointer hover:text-teal-600 transition"
+                      className="text-lg font-bold text-gray-900 mb-2 cursor-pointer hover:text-teal-600 transition line-clamp-1"
                       onClick={() => navigate(`/dashboard/tenant/room/${room.id}`)}
+                      title={room.title}
                     >
-                      {room.name}
+                      {room.title}
                     </h3>
+
+                    {/* Description */}
+                    {room.description && (
+                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                        {room.description}
+                      </p>
+                    )}
 
                     <div className="space-y-2 mb-3">
                       <p className="text-sm text-gray-600 flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-teal-500" />
-                        {room.address}
+                        <MapPin className="w-4 h-4 text-teal-500 flex-shrink-0" />
+                        <span className="line-clamp-1" title={room.address}>{room.address}</span>
                       </p>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-4 h-4 text-blue-500" />
-                          Min. {room.minStayMonths} months
+                          Min. {room.minimumStayMonths} months
                         </span>
                         <span className="flex items-center gap-1">
-                          📏 {room.squareMeters}m²
+                          🛏️ {room.numberOfBedRooms} bed{room.numberOfBedRooms !== 1 ? 's' : ''}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          🚽 {room.numberOfToilets} toilet{room.numberOfToilets !== 1 ? 's' : ''}
                         </span>
                       </div>
                     </div>
@@ -526,29 +580,32 @@ function FindRoomsPage() {
                     {/* Amenities */}
                     <div className="flex flex-wrap gap-1 mb-3">
                       {room.hasWindow && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">🪟 Window</span>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                          🪟 Window
+                        </span>
                       )}
-                      {room.hasWashingMachine && (
-                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">🧺 Washer</span>
+                      {room.imageUrls && room.imageUrls.length > 0 && (
+                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                          📷 {room.imageUrls.length} photo{room.imageUrls.length !== 1 ? 's' : ''}
+                        </span>
                       )}
-                      {room.hasAircon && (
-                        <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-1 rounded-full">❄️ AC</span>
+                      {room.videoUrls && room.videoUrls.length > 0 && (
+                        <span className="text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded-full">
+                          🎥 Video tour
+                        </span>
                       )}
                     </div>
 
                     {/* Footer */}
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={room.landlord.avatar}
-                          alt={room.landlord.name}
-                          className="w-6 h-6 rounded-full"
-                        />
-                        <span className="text-sm text-gray-600">{room.landlord.name}</span>
+                      <div className="text-sm text-gray-600">
+                        {extractDistrict(room.address)}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="w-5 h-5 text-teal-600" />
-                        <span className="text-xl font-bold text-teal-600">{room.price}</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-bold text-teal-600">
+                          {room.rentPricePerMonth?.toLocaleString('vi-VN')}
+                        </span>
+                        <span className="text-xl font-bold text-teal-600">₫</span>
                         <span className="text-sm text-gray-500">/mo</span>
                       </div>
                     </div>

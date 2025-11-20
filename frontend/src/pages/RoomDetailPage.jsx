@@ -1,348 +1,569 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import Button from '../components/common/Button.jsx';
-import Modal from '../components/common/Modal.jsx';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { 
+  ArrowLeft, 
+  Bookmark, 
+  BookmarkCheck,
+  MapPin, 
+  DollarSign, 
+  Calendar,
+  Bed,
+  Bath,
+  Maximize2,
+  CheckCircle,
+  XCircle,
+  User,
+  Mail,
+  Phone,
+  Share2,
+  Loader,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  X
+} from 'lucide-react';
 
 function RoomDetailPage() {
+  const { roomId } = useParams();
   const navigate = useNavigate();
-  const { roomId } = useParams(); // Get room ID from URL
+
+  // State
+  const [room, setRoom] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState('');
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
-  // TODO: Get user role from auth context/state
-  // For now, we'll determine from the route
-  const userRole = window.location.pathname.includes('/tenant') ? 'tenant' : 'landlord';
+  useEffect(() => {
+    fetchRoomDetails();
+    checkIfBookmarked();
+  }, [roomId]);
 
-  // TODO: Fetch room data from API using roomId
-  // Mock data based on CreateRoomRequest DTO
-  const roomData = {
-    id: roomId || '123',
-    title: 'Cozy Studio Apartment in District 1',
-    description: 'Beautiful modern studio apartment with all amenities. Perfect for students or young professionals. Close to public transport, shopping centers, and restaurants. Fully furnished with AC, WiFi, and kitchen appliances.',
-    rentPricePerMonth: 450,
-    minimumStayMonths: 3,
-    address: '123 Nguyen Hue Street, Ben Nghe Ward, District 1, Ho Chi Minh City',
-    latitude: 10.7758,
-    longitude: 106.7017,
-    numberOfToilets: 1,
-    numberOfBedRooms: 1,
-    hasWindow: true,
-    hasBalcony: true,
-    hasWashingMachine: true,
-    hasAirConditioner: true,
-    hasWifi: true,
-    thumbnail: 'https://via.placeholder.com/800x600/FF69B4/FFFFFF?text=Room+Thumbnail',
-    images: [
-      'https://via.placeholder.com/800x600/FF69B4/FFFFFF?text=Image+1',
-      'https://via.placeholder.com/800x600/20B2AA/FFFFFF?text=Image+2',
-      'https://via.placeholder.com/800x600/9370DB/FFFFFF?text=Image+3',
-      'https://via.placeholder.com/800x600/FF6347/FFFFFF?text=Image+4'
-    ],
-    landlord: {
-      id: 'landlord-456',
-      name: 'John Doe',
-      avatar: 'https://via.placeholder.com/100/4A90E2/FFFFFF?text=JD',
-      phone: '+84 912 345 678',
-      email: 'john.doe@example.com'
-    },
-    status: 'available', // 'available', 'rented', 'draft'
-    createdAt: '2025-01-10',
-    updatedAt: '2025-01-15'
+  // Fetch room details
+  const fetchRoomDetails = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:8080/api/user/rooms/${roomId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Room data:', data); // Debug log
+        setRoom(data);
+      } else if (response.status === 404) {
+        alert('Room not found');
+        navigate('/dashboard/tenant/find-rooms');
+      } else {
+        throw new Error('Failed to fetch room details');
+      }
+    } catch (error) {
+      console.error('Error fetching room:', error);
+      alert('Error loading room details. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked);
-    // TODO: Call API to bookmark/unbookmark room
-    console.log(isBookmarked ? 'Removed bookmark' : 'Added bookmark');
+  // Check if room is bookmarked
+  const checkIfBookmarked = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8080/api/tenant/bookmarks', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const bookmarks = await response.json();
+        const isBookmarked = bookmarks.some(bookmark => 
+          bookmark.room?.id === roomId
+        );
+        setIsBookmarked(isBookmarked);
+      }
+    } catch (error) {
+      console.error('Error checking bookmark status:', error);
+    }
   };
 
-  const handleEdit = () => {
-    navigate(`/dashboard/landlord/edit-room/${roomId}`);
+  // Toggle bookmark
+  const handleToggleBookmark = async () => {
+    setBookmarkLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const method = isBookmarked ? 'DELETE' : 'POST';
+      
+      const response = await fetch(`http://localhost:8080/api/tenant/bookmarks/rooms/${roomId}`, {
+        method: method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        setIsBookmarked(!isBookmarked);
+      } else {
+        throw new Error('Failed to toggle bookmark');
+      }
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      alert('Failed to update bookmark. Please try again.');
+    } finally {
+      setBookmarkLoading(false);
+    }
   };
 
-  const handleContactLandlord = () => {
-    // TODO: Open messenger or create conversation
-    console.log('Contact landlord:', roomData.landlord.id);
+  // Image navigation
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === 0 ? room.imageUrls.length - 1 : prev - 1
+    );
   };
 
-  const openImageModal = (image) => {
-    setSelectedImage(image);
-    setShowImageModal(true);
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === room.imageUrls.length - 1 ? 0 : prev + 1
+    );
   };
 
-  // Check if current user owns this room
-  const isOwnRoom = userRole === 'landlord'; // TODO: Compare with actual user ID
+  // Video modal
+  const handlePlayVideo = (videoUrl) => {
+    setCurrentVideoUrl(videoUrl);
+    setShowVideoModal(true);
+  };
+
+  const handleCloseVideoModal = () => {
+    setShowVideoModal(false);
+    setCurrentVideoUrl('');
+  };
+
+  // Format currency (VND)
+  const formatCurrency = (amount) => {
+    if (!amount) return '0';
+    return new Intl.NumberFormat('vi-VN').format(amount);
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Immediately';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-white">
+        <div className="text-center">
+          <Loader className="w-12 h-12 text-teal-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Loading room details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!room) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-white">
+        <div className="text-center">
+          <p className="text-gray-600 font-medium mb-4">Room not found</p>
+          <button
+            onClick={() => navigate('/dashboard/tenant/find-rooms')}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+          >
+            Back to Search
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const hasImages = room.imageUrls && room.imageUrls.length > 0;
+  const hasVideos = room.videoUrls && room.videoUrls.length > 0;
 
   return (
-    <div className="h-full overflow-y-auto bg-gradient-to-br from-pink-50 via-white to-teal-50">
-      <div className="max-w-6xl mx-auto p-8">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          <span className="font-medium">Back</span>
-        </button>
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-teal-50 to-white">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="font-medium">Back</span>
+            </button>
 
-        {/* Main Content */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Image Gallery Section */}
-          <div className="relative">
-            {/* Main Thumbnail */}
-            <div className="relative h-96 bg-gradient-to-br from-pink-200 to-purple-200">
-              <img
-                src={roomData.thumbnail}
-                alt={roomData.title}
-                className="w-full h-full object-cover cursor-pointer"
-                onClick={() => openImageModal(roomData.thumbnail)}
-              />
-              
-              {/* Status Badge */}
-              <div className="absolute top-4 right-4">
-                <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg ${
-                  roomData.status === 'available' 
-                    ? 'bg-green-500 text-white' 
-                    : roomData.status === 'rented'
-                    ? 'bg-red-500 text-white'
-                    : 'bg-gray-500 text-white'
-                }`}>
-                  {roomData.status.toUpperCase()}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleToggleBookmark}
+                disabled={bookmarkLoading}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
+                  isBookmarked
+                    ? 'bg-teal-600 text-white border-teal-600 hover:bg-teal-700'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-teal-600 hover:text-teal-600'
+                } ${bookmarkLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {bookmarkLoading ? (
+                  <Loader className="w-4 h-4 animate-spin" />
+                ) : isBookmarked ? (
+                  <BookmarkCheck className="w-4 h-4" />
+                ) : (
+                  <Bookmark className="w-4 h-4" />
+                )}
+                <span className="font-medium">
+                  {isBookmarked ? 'Saved' : 'Save'}
                 </span>
-              </div>
-            </div>
+              </button>
 
-            {/* Image Grid */}
-            <div className="grid grid-cols-4 gap-2 p-4 bg-gray-50">
-              {roomData.images.map((image, index) => (
-                <img
-                  key={index}
-                  src={image}
-                  alt={`Room ${index + 1}`}
-                  className="h-24 w-full object-cover rounded-lg cursor-pointer hover:opacity-75 transition"
-                  onClick={() => openImageModal(image)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Room Details Section */}
-          <div className="p-8">
-            {/* Header with Title and Actions */}
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {roomData.title}
-                </h1>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span className="text-sm">{roomData.address}</span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                {userRole === 'tenant' && (
-                  <Button
-                    variant={isBookmarked ? 'danger' : 'secondary'}
-                    onClick={handleBookmark}
-                    className="flex items-center gap-2"
-                  >
-                    <span className="text-xl">
-                      {isBookmarked ? '❤️' : '🤍'}
-                    </span>
-                    {isBookmarked ? 'Bookmarked' : 'Bookmark'}
-                  </Button>
-                )}
-
-                {userRole === 'landlord' && isOwnRoom && (
-                  <Button
-                    variant="primary"
-                    onClick={handleEdit}
-                    className="flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Edit Room
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Price and Duration */}
-            <div className="bg-gradient-to-r from-pink-50 to-teal-50 rounded-xl p-6 mb-8">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Monthly Rent</p>
-                  <p className="text-3xl font-bold text-pink-600">
-                    ${roomData.rentPricePerMonth}
-                    <span className="text-sm text-gray-600 font-normal">/month</span>
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Minimum Stay</p>
-                  <p className="text-3xl font-bold text-teal-600">
-                    {roomData.minimumStayMonths}
-                    <span className="text-sm text-gray-600 font-normal"> months</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Room Features */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Room Features</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <span className="text-2xl">🛏️</span>
-                  <div>
-                    <p className="text-sm text-gray-600">Bedrooms</p>
-                    <p className="font-bold text-gray-900">{roomData.numberOfBedRooms}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <span className="text-2xl">🚽</span>
-                  <div>
-                    <p className="text-sm text-gray-600">Toilets</p>
-                    <p className="font-bold text-gray-900">{roomData.numberOfToilets}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <span className="text-2xl">{roomData.hasWindow ? '🪟' : '❌'}</span>
-                  <div>
-                    <p className="text-sm text-gray-600">Window</p>
-                    <p className="font-bold text-gray-900">{roomData.hasWindow ? 'Yes' : 'No'}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <span className="text-2xl">{roomData.hasBalcony ? '🏠' : '❌'}</span>
-                  <div>
-                    <p className="text-sm text-gray-600">Balcony</p>
-                    <p className="font-bold text-gray-900">{roomData.hasBalcony ? 'Yes' : 'No'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Amenities */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Amenities</h2>
-              <div className="flex flex-wrap gap-3">
-                {roomData.hasAirConditioner && (
-                  <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full flex items-center gap-2">
-                    <span>❄️</span>
-                    Air Conditioner
-                  </span>
-                )}
-                {roomData.hasWifi && (
-                  <span className="px-4 py-2 bg-purple-100 text-purple-700 rounded-full flex items-center gap-2">
-                    <span>📶</span>
-                    WiFi
-                  </span>
-                )}
-                {roomData.hasWashingMachine && (
-                  <span className="px-4 py-2 bg-green-100 text-green-700 rounded-full flex items-center gap-2">
-                    <span>🧺</span>
-                    Washing Machine
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Description</h2>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                {roomData.description}
-              </p>
-            </div>
-
-            {/* Location */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Location</h2>
-              <div className="bg-gray-50 rounded-xl p-6">
-                <div className="flex items-start gap-3 mb-4">
-                  <svg className="w-6 h-6 text-pink-600 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <div>
-                    <p className="font-semibold text-gray-900">{roomData.address}</p>
-                    {roomData.latitude && roomData.longitude && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        Coordinates: {roomData.latitude}, {roomData.longitude}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {/* TODO: Add Google Maps integration */}
-                <div className="h-64 bg-gradient-to-br from-teal-200 to-blue-200 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-600">📍 Map view (Coming soon)</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Landlord Info */}
-            <div className="border-t border-gray-200 pt-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Landlord Information</h2>
-              <div className="flex items-center gap-4 p-6 bg-gray-50 rounded-xl">
-                <img
-                  src={roomData.landlord.avatar}
-                  alt={roomData.landlord.name}
-                  className="w-16 h-16 rounded-full border-2 border-pink-300"
-                />
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg text-gray-900">{roomData.landlord.name}</h3>
-                  <p className="text-sm text-gray-600">{roomData.landlord.email}</p>
-                  <p className="text-sm text-gray-600">{roomData.landlord.phone}</p>
-                </div>
-                {userRole === 'tenant' && (
-                  <Button
-                    variant="primary"
-                    onClick={handleContactLandlord}
-                    className="flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    Contact Landlord
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Metadata */}
-            <div className="mt-6 flex items-center gap-6 text-sm text-gray-500">
-              <span>Posted: {new Date(roomData.createdAt).toLocaleDateString()}</span>
-              <span>Updated: {new Date(roomData.updatedAt).toLocaleDateString()}</span>
+              <button
+                onClick={() => {
+                  alert('Share functionality coming soon!');
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:border-gray-400 transition"
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="font-medium">Share</span>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Image Modal */}
-      <Modal
-        isOpen={showImageModal}
-        onClose={() => setShowImageModal(false)}
-        title="Room Image"
-        size="large"
-      >
-        <img
-          src={selectedImage}
-          alt="Room"
-          className="w-full h-auto rounded-lg"
-        />
-      </Modal>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Image Gallery */}
+        {hasImages && (
+          <div className="mb-8">
+            <div className="relative bg-gray-900 rounded-2xl overflow-hidden" style={{ height: '500px' }}>
+              <img
+                src={room.imageUrls[currentImageIndex]}
+                alt={`${room.title} - Image ${currentImageIndex + 1}`}
+                className="w-full h-full object-cover"
+                onError={(e) => { 
+                  e.target.src = 'https://placehold.co/800x600/E0E0E0/666666?text=No+Image'; 
+                }}
+              />
+
+              {/* Image Navigation */}
+              {room.imageUrls.length > 1 && (
+                <>
+                  <button
+                    onClick={handlePrevImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 rounded-full p-3 shadow-lg transition"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={handleNextImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 rounded-full p-3 shadow-lg transition"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+
+                  {/* Image Counter */}
+                  <div className="absolute bottom-4 right-4 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium">
+                    {currentImageIndex + 1} / {room.imageUrls.length}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Thumbnail Gallery */}
+            {room.imageUrls.length > 1 && (
+              <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+                {room.imageUrls.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={`flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 transition ${
+                      currentImageIndex === index
+                        ? 'border-teal-600'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <img
+                      src={image}
+                      alt={`Thumbnail ${index + 1}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { 
+                        e.target.src = 'https://placehold.co/200x200/E0E0E0/666666?text=No+Image'; 
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Video Gallery */}
+        {hasVideos && (
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Video Tour</h3>
+            <div className="flex gap-4 overflow-x-auto pb-2">
+              {room.videoUrls.map((video, index) => (
+                <button
+                  key={index}
+                  onClick={() => handlePlayVideo(video)}
+                  className="relative flex-shrink-0 w-64 h-40 rounded-xl overflow-hidden bg-gray-900 hover:opacity-90 transition group"
+                >
+                  <video
+                    src={video}
+                    className="w-full h-full object-cover"
+                    muted
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition">
+                    <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center">
+                      <Play className="w-8 h-8 text-teal-600 ml-1" />
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Main Info */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Title & Price */}
+            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{room.title}</h1>
+              <div className="flex items-center gap-2 text-gray-600 mb-4">
+                <MapPin className="w-5 h-5" />
+                <span>{room.address}</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold text-teal-600">
+                  {formatCurrency(room.rentPricePerMonth)}
+                </span>
+                <span className="text-2xl font-bold text-teal-600">₫</span>
+                <span className="text-gray-600">/month</span>
+              </div>
+              {room.depositAmount > 0 && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Security Deposit: {formatCurrency(room.depositAmount)}₫
+                </p>
+              )}
+            </div>
+
+            {/* Key Details */}
+            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Property Details</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center gap-3">
+                  <Bed className="w-5 h-5 text-teal-600" />
+                  <div>
+                    <p className="text-sm text-gray-600">Bedrooms</p>
+                    <p className="font-semibold text-gray-900">{room.numberOfBedRooms || 0}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Bath className="w-5 h-5 text-teal-600" />
+                  <div>
+                    <p className="text-sm text-gray-600">Bathrooms</p>
+                    <p className="font-semibold text-gray-900">{room.numberOfToilets || 0}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Maximize2 className="w-5 h-5 text-teal-600" />
+                  <div>
+                    <p className="text-sm text-gray-600">Floor Area</p>
+                    <p className="font-semibold text-gray-900">{room.floorArea || 'N/A'} m²</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-teal-600" />
+                  <div>
+                    <p className="text-sm text-gray-600">Available</p>
+                    <p className="font-semibold text-gray-900">
+                      {formatDate(room.availableFrom)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Min. Stay</p>
+                  <p className="font-semibold text-gray-900">{room.minimumStayMonths || 0} months</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Furnishing</p>
+                  <p className="font-semibold text-gray-900">{room.furnishingStatus || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Pet Policy</p>
+                  <p className="font-semibold text-gray-900">
+                    {room.petAllowed ? 'Pets Allowed' : 'No Pets'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Description</h2>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                {room.description || 'No description available.'}
+              </p>
+            </div>
+
+            {/* Window Feature */}
+            {room.hasWindow !== undefined && (
+              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
+                <div className="flex items-center gap-3">
+                  {room.hasWindow ? (
+                    <>
+                      <CheckCircle className="w-6 h-6 text-green-600" />
+                      <div>
+                        <p className="font-semibold text-gray-900">Has Window</p>
+                        <p className="text-sm text-gray-600">This room has natural lighting</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-6 h-6 text-gray-600" />
+                      <div>
+                        <p className="font-semibold text-gray-900">No Window</p>
+                        <p className="text-sm text-gray-600">This room doesn't have a window</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Smoking Policy */}
+            {room.smokingAllowed !== undefined && (
+              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
+                <div className="flex items-center gap-3">
+                  {room.smokingAllowed ? (
+                    <>
+                      <CheckCircle className="w-6 h-6 text-green-600" />
+                      <div>
+                        <p className="font-semibold text-gray-900">Smoking Allowed</p>
+                        <p className="text-sm text-gray-600">This property allows smoking</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-6 h-6 text-red-600" />
+                      <div>
+                        <p className="font-semibold text-gray-900">No Smoking</p>
+                        <p className="text-sm text-gray-600">This is a smoke-free property</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Landlord Info & Actions */}
+          <div className="space-y-6">
+            {/* Landlord Card */}
+            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 sticky top-24">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Contact Landlord</h3>
+              
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center">
+                  <User className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 text-lg">{room.landlordName || 'Owner'}</p>
+                  <p className="text-sm text-gray-600">Property Owner</p>
+                </div>
+              </div>
+
+              {room.landlordEmail && (
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center gap-3 text-gray-700">
+                    <Mail className="w-5 h-5 text-teal-600" />
+                    <span className="text-sm">{room.landlordEmail}</span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  navigate(`/dashboard/messages?recipientId=${room.landlordId}&recipientName=${room.landlordName}`);
+                }}
+                className="w-full px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl font-semibold hover:shadow-lg transition transform hover:scale-105"
+              >
+                Send Message
+              </button>
+
+              <div className="mt-4 p-4 bg-teal-50 rounded-lg border border-teal-100">
+                <p className="text-xs text-gray-600 text-center">
+                  Message the landlord to schedule a viewing or ask questions
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="bg-gradient-to-br from-teal-50 to-purple-50 rounded-2xl p-6 border border-teal-100">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Info</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Listed</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatDate(room.createdAt)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Status</span>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    room.status === 'PUBLISHED'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {room.status || 'Available'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Video Modal */}
+      {showVideoModal && currentVideoUrl && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-5xl">
+            <button
+              onClick={handleCloseVideoModal}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <video
+              src={currentVideoUrl}
+              controls
+              autoPlay
+              className="w-full rounded-xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
