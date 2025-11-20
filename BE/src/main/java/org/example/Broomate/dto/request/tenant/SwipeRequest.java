@@ -1,27 +1,19 @@
 package org.example.Broomate.dto.request.tenant;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
 import org.example.Broomate.model.Swipe;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class SwipeRequest {
-
-
-    @NotBlank(message = "Target tenant ID is required")
-    @Schema(description = "ID of the tenant being swiped on", example = "tenant123")
+    
+    @NotNull(message = "Target tenant ID is required")
     private String targetTenantId;
-
-    @NotBlank(message = "Action is required")
-    @Pattern(regexp = "ACCEPT|REJECT", message = "Action must be either ACCEPT or REJECT")
-    @Schema(description = "Swipe action", example = "ACCEPT")
+    
+    @NotNull(message = "Swipe action is required")
+    // ✅ Remove @Pattern - validation happens automatically with Enum
     private Swipe.SwipeActionEnum swipeAction;
 }

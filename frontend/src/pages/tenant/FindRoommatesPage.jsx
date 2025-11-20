@@ -141,7 +141,7 @@ const FindRoommatesPage = () => {
         },
         body: JSON.stringify({
           targetTenantId: currentProfile.id,
-          swipeAction: action // 'LIKE' or 'REJECT'
+          swipeAction: action === 'LIKE' ? 'ACCEPT' : 'REJECT'
         })
       });
 
@@ -423,7 +423,7 @@ const FindRoommatesPage = () => {
         />
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
