@@ -5,7 +5,7 @@ import {
   Bookmark, 
   BookmarkCheck,
   MapPin, 
-  DollarSign, 
+  MessageSquare,
   Calendar,
   Bed,
   Bath,
@@ -14,7 +14,6 @@ import {
   XCircle,
   User,
   Mail,
-  Phone,
   Share2,
   Loader,
   ChevronLeft,
@@ -22,6 +21,9 @@ import {
   Play,
   X
 } from 'lucide-react';
+import roomService from '../../services/roomService';
+import tenantService from '../../services/tenantService';
+import messageService from '../../services/messageService';
 
 function RoomDetailPage() {
   const { roomId } = useParams();
@@ -35,94 +37,82 @@ function RoomDetailPage() {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
 
   useEffect(() => {
     fetchRoomDetails();
     checkIfBookmarked();
   }, [roomId]);
 
-  // Fetch room details
+  // ✅ Fetch room details using service
   const fetchRoomDetails = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      const response = await fetch(`http://localhost:8080/api/user/rooms/${roomId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Room data:', data); // Debug log
-        setRoom(data);
-      } else if (response.status === 404) {
+      const data = await roomService.getRoomById(roomId);
+      setRoom(data);
+    } catch (error) {
+      console.error('Error fetching room:', error);
+      if (error.response?.status === 404) {
         alert('Room not found');
         navigate('/dashboard/tenant/find-rooms');
       } else {
-        throw new Error('Failed to fetch room details');
+        alert('Error loading room details. Please try again.');
       }
-    } catch (error) {
-      console.error('Error fetching room:', error);
-      alert('Error loading room details. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Check if room is bookmarked
+  // ✅ Check if room is bookmarked using service
   const checkIfBookmarked = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8080/api/tenant/bookmarks', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const bookmarks = await response.json();
-        const isBookmarked = bookmarks.some(bookmark => 
-          bookmark.room?.id === roomId
-        );
-        setIsBookmarked(isBookmarked);
-      }
+      const bookmarks = await tenantService.getBookmarks();
+      const isBookmarked = bookmarks.some(bookmark => 
+        bookmark.room?.id === roomId || bookmark.roomId === roomId
+      );
+      setIsBookmarked(isBookmarked);
     } catch (error) {
       console.error('Error checking bookmark status:', error);
     }
   };
 
-  // Toggle bookmark
+  // ✅ Toggle bookmark using service
   const handleToggleBookmark = async () => {
     setBookmarkLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const method = isBookmarked ? 'DELETE' : 'POST';
-      
-      const response = await fetch(`http://localhost:8080/api/tenant/bookmarks/rooms/${roomId}`, {
-        method: method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setIsBookmarked(!isBookmarked);
+      if (isBookmarked) {
+        await tenantService.removeBookmark(roomId);
       } else {
-        throw new Error('Failed to toggle bookmark');
+        await tenantService.addBookmark(roomId);
       }
+      setIsBookmarked(!isBookmarked);
     } catch (error) {
       console.error('Error toggling bookmark:', error);
       alert('Failed to update bookmark. Please try again.');
     } finally {
       setBookmarkLoading(false);
+    }
+  };
+
+  // ✅ Contact landlord - create conversation using service
+  const handleContactLandlord = async () => {
+    setIsCreatingConversation(true);
+
+    try {
+      // Create or get existing conversation with landlord
+      const conversation = await messageService.createOrGetConversation(room.landlordId);
+      
+      // Navigate to messages page with conversation
+      navigate('/dashboard/messages', {
+        state: {
+          conversationId: conversation.conversationId,
+          recipientName: room.landlordName
+        }
+      });
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      alert('Failed to start conversation. Please try again.');
+    } finally {
+      setIsCreatingConversation(false);
     }
   };
 
@@ -504,12 +494,21 @@ function RoomDetailPage() {
               )}
 
               <button
-                onClick={() => {
-                  navigate(`/dashboard/messages?recipientId=${room.landlordId}&recipientName=${room.landlordName}`);
-                }}
-                className="w-full px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl font-semibold hover:shadow-lg transition transform hover:scale-105"
+                onClick={handleContactLandlord}
+                disabled={isCreatingConversation}
+                className="w-full px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl font-semibold hover:shadow-lg transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Send Message
+                {isCreatingConversation ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="w-5 h-5" />
+                    <span>Send Message</span>
+                  </>
+                )}
               </button>
 
               <div className="mt-4 p-4 bg-teal-50 rounded-lg border border-teal-100">

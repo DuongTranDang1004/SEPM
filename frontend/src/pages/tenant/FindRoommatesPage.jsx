@@ -1,60 +1,83 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Heart, Loader, MapPin, DollarSign, Calendar, ChevronLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import tenantService from '../../services/tenantService';
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:8080/api';
+// ✅ Match Modal Component
+function MatchModal({ profile, onClose }) {
+  const navigate = useNavigate();
 
-// Match Modal Component
-const MatchModal = ({ profile, onClose, onOpenChat }) => {
-  if (!profile) return null;
+  const handleOpenChat = () => {
+    if (profile.conversationId) {
+      navigate('/dashboard/messages', {
+        state: {
+          conversationId: profile.conversationId,
+          recipientName: profile.name,
+          recipientAvatar: profile.avatar
+        }
+      });
+      onClose();
+    } else {
+      alert('Conversation not ready yet. Please try again in a moment.');
+    }
+  };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-scaleIn"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="text-center">
-          <div className="mb-6">
-            <Heart className="w-20 h-20 text-pink-500 mx-auto animate-pulse" fill="currentColor" />
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+        >
+          ✕
+        </button>
+
+        <div className="text-center mb-6">
+          <div className="animate-bounce text-6xl mb-4">🎉</div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">It's a Match!</h2>
+          <p className="text-gray-600">You and {profile.name} liked each other</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl p-6 mb-6">
+          <div className="flex items-center gap-4 mb-4">
+            <img
+              src={profile.avatar || `https://ui-avatars.com/api/?name=${profile.name}`}
+              alt={profile.name}
+              className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
+            />
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">{profile.name}</h3>
+              <p className="text-sm text-gray-600">
+                {profile.age && `${profile.age} years old`}
+              </p>
+            </div>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">🎉 It's a Match!</h2>
-          <p className="text-gray-600 mb-6">
-            You and <span className="font-semibold text-pink-600">{profile.name}</span> liked each other!
-          </p>
-          <img
-            src={profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=96&background=FF8598&color=fff`}
-            alt={profile.name}
-            className="w-24 h-24 rounded-full mx-auto mb-6 border-4 border-pink-200 shadow-lg object-cover"
-            onError={(e) => { 
-              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=96&background=FF8598&color=fff`;
-            }}
-          />
-          <div className="space-y-3">
-            <button
-              onClick={onOpenChat}
-              className="w-full bg-gradient-to-r from-pink-500 to-pink-600 text-white font-semibold py-3 rounded-xl hover:from-pink-600 hover:to-pink-700 transition transform hover:scale-105"
-            >
-              Start Chatting
-            </button>
-            <button
-              onClick={onClose}
-              className="w-full bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-200 transition"
-            >
-              Keep Swiping
-            </button>
-          </div>
+          
+          {profile.description && (
+            <p className="text-sm text-gray-700 line-clamp-3">{profile.description}</p>
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition"
+          >
+            Keep Swiping
+          </button>
+          <button
+            onClick={handleOpenChat}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold rounded-xl hover:from-pink-600 hover:to-purple-600 transition shadow-lg"
+          >
+            💬 Start Chat
+          </button>
         </div>
       </div>
     </div>
   );
-};
+}
 
-// Main Component
+// ✅ Main Component
 const FindRoommatesPage = () => {
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState([]);
@@ -62,46 +85,23 @@ const FindRoommatesPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [message, setMessage] = useState('Fetching roommate profiles...');
-  const [isMatchModalVisible, setIsMatchModalVisible] = useState(false);
-  const [matchData, setMatchData] = useState(null);
+  
+  // ✅ FIXED: Correct state variable names
+  const [showMatchModal, setShowMatchModal] = useState(false);
+  const [matchedProfile, setMatchedProfile] = useState(null);
+  
   const [swipeCount, setSwipeCount] = useState(0);
   const [isSwipeInProgress, setIsSwipeInProgress] = useState(false);
 
   const currentProfile = profiles[currentIndex];
 
-  // Fetch all tenant profiles
   const fetchProfiles = useCallback(async () => {
     setIsLoading(true);
     setIsError(false);
     setMessage('Fetching roommate profiles...');
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/tenant/profiles`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          navigate('/login');
-          return;
-        }
-        throw new Error('Failed to fetch profiles');
-      }
-
-      const data = await response.json();
-      console.log('Fetched profiles:', data); // Debug log
+      const data = await tenantService.getProfiles();
 
       if (!data.tenants || data.tenants.length === 0) {
         setMessage('No more roommates available right now. Check back later! 🔄');
@@ -111,7 +111,6 @@ const FindRoommatesPage = () => {
         setCurrentIndex(0);
         setMessage('');
       }
-
     } catch (error) {
       console.error('Error fetching profiles:', error);
       setIsError(true);
@@ -119,81 +118,70 @@ const FindRoommatesPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
     fetchProfiles();
   }, [fetchProfiles]);
 
+  // ✅ FIXED: Handle swipe with correct action values
   const handleSwipe = async (action) => {
-    if (isSwipeInProgress || !currentProfile) return;
+    if (isSwipeInProgress || currentIndex >= profiles.length) return;
 
+    const currentProfile = profiles[currentIndex];
+
+     if (!currentProfile || !currentProfile.id) {
+      console.error('Invalid profile:', currentProfile);
+      alert('Unable to process swipe. Profile data is missing.');
+      setCurrentIndex(prev => prev + 1);
+      return;
+    }
+
+    console.log('Swiping on profile:', {
+      userId: currentProfile.id,
+      name: currentProfile.name,
+      action: action
+    });
+    
+    // ✅ action is now 'ACCEPT' or 'REJECT' directly
     setIsSwipeInProgress(true);
+    setSwipeCount(prev => prev + 1);
 
     try {
-      const token = localStorage.getItem('token');
+      const response = await tenantService.swipe(currentProfile.id, action);
       
-      const response = await fetch(`${API_BASE_URL}/tenant/swipe`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          targetTenantId: currentProfile.id,
-          swipeAction: action === 'LIKE' ? 'ACCEPT' : 'REJECT'
-        })
-      });
+      console.log('Swipe response:', response);
 
-      if (!response.ok) {
-        throw new Error('Swipe action failed');
+      // ✅ Check if it's a match
+      if (response.isMatch && response.matchDetail) {
+        console.log('🎉 MATCH DETAILS:', response.matchDetail);
+        console.log('Conversation ID:', response.matchDetail.conversationId);
+        setMatchedProfile({
+          ...currentProfile,
+          matchId: response.matchDetail.matchId,
+          conversationId: response.matchDetail.conversationId,
+          matchedAt: response.matchDetail.matchedAt
+        });
+        setShowMatchModal(true);
       }
 
-      const data = await response.json();
-      console.log('Swipe response:', data); // Debug log
-
-      setSwipeCount(prev => prev + 1);
-
-      // Check if it's a match
-      if (data.isMatch) {
-        setMatchData(currentProfile);
-        setIsMatchModalVisible(true);
-      } else {
-        // Move to next profile
-        moveToNextProfile();
-      }
-
+      // Move to next profile
+      setCurrentIndex(prev => prev + 1);
     } catch (error) {
       console.error('Error swiping:', error);
-      setMessage("Action failed. Please try again.");
-      setTimeout(() => setMessage(''), 3000);
+      alert('Failed to record swipe. Please try again.');
     } finally {
       setIsSwipeInProgress(false);
     }
   };
 
-  const moveToNextProfile = () => {
-    if (currentIndex < profiles.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    } else {
-      // No more profiles
-      setMessage('No more roommates available right now. Check back later! 🔄');
-      setProfiles([]);
-    }
-  };
-
-  const handleOpenChat = () => {
-    setIsMatchModalVisible(false);
-    navigate('/dashboard/messages');
-  };
-
   const handleCloseMatch = () => {
-    setIsMatchModalVisible(false);
-    moveToNextProfile();
+    setShowMatchModal(false);
+    setMatchedProfile(null);
   };
 
   // Loading state
-  if (isLoading) {
+  if (isLoading && profiles.length === 0) {
     return (
       <div className="h-full flex items-center justify-center bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50">
         <div className="text-center">
@@ -357,20 +345,9 @@ const FindRoommatesPage = () => {
                 </div>
               )}
 
-              {/* Timestamps */}
-              {(currentProfile.createdAt || currentProfile.updatedAt) && (
-                <div className="mb-6 text-xs text-gray-500 space-y-1">
-                  {currentProfile.createdAt && (
-                    <p>Member since: {new Date(currentProfile.createdAt).toLocaleDateString()}</p>
-                  )}
-                  {currentProfile.updatedAt && (
-                    <p>Profile updated: {new Date(currentProfile.updatedAt).toLocaleDateString()}</p>
-                  )}
-                </div>
-              )}
-
               {/* Action Buttons */}
               <div className="flex gap-4 justify-center pt-4">
+                {/* ✅ FIXED: Pass 'REJECT' directly */}
                 <button
                   onClick={() => handleSwipe('REJECT')}
                   disabled={isSwipeInProgress}
@@ -380,8 +357,9 @@ const FindRoommatesPage = () => {
                   <span>Pass</span>
                 </button>
 
+                {/* ✅ FIXED: Pass 'ACCEPT' directly */}
                 <button
-                  onClick={() => handleSwipe('LIKE')}
+                  onClick={() => handleSwipe('ACCEPT')}
                   disabled={isSwipeInProgress}
                   className="flex-1 max-w-[160px] bg-gradient-to-r from-pink-500 to-purple-500 text-white font-semibold py-4 rounded-2xl hover:from-pink-600 hover:to-purple-600 transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
                 >
@@ -414,31 +392,13 @@ const FindRoommatesPage = () => {
         </div>
       </div>
 
-      {/* Match Modal */}
-      {isMatchModalVisible && matchData && (
+      {/* ✅ FIXED: Correct prop names */}
+      {showMatchModal && matchedProfile && (
         <MatchModal
-          profile={matchData}
+          profile={matchedProfile}
           onClose={handleCloseMatch}
-          onOpenChat={handleOpenChat}
         />
       )}
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes scaleIn {
-          from { transform: scale(0.9); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
-        }
-        .animate-scaleIn {
-          animation: scaleIn 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 };

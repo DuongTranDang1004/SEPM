@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import authService from '../../services/authService';
 
 function SignupPage() {
   const navigate = useNavigate();
@@ -131,31 +132,10 @@ function SignupPage() {
         }
       }
 
-      // Determine endpoint based on role
-      const endpoint = role === 'TENANT' 
-        ? 'http://localhost:8080/api/auth/signup/tenant'
-        : 'http://localhost:8080/api/auth/signup/landlord';
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formDataToSend
-        // Note: Don't set Content-Type header, browser will set it automatically with boundary
-      });
-
-      // Check if response has content before parsing
-      let data;
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        // Handle non-JSON responses (like 403 Forbidden)
-        const text = await response.text();
-        data = { message: text || `Server returned ${response.status}: ${response.statusText}` };
-      }
-
-      if (!response.ok) {
-        throw new Error(data.message || `Signup failed with status ${response.status}`);
-      }
+      // ✅ Use authService instead of direct fetch
+      const data = role === 'TENANT' 
+        ? await authService.signupTenant(formDataToSend)
+        : await authService.signupLandlord(formDataToSend);
 
       // Store token and user data
       localStorage.setItem('token', data.token);

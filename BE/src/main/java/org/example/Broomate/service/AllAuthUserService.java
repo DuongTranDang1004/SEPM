@@ -1,11 +1,9 @@
 package org.example.Broomate.service;
 
-
 import com.google.cloud.Timestamp;
 import lombok.extern.slf4j.Slf4j;
 import org.example.Broomate.dto.request.allAuthUser.ChangePasswordRequest;
 import org.example.Broomate.dto.request.allAuthUser.SendMessageRequest;
-import org.example.Broomate.dto.request.allAuthUser.ChangePasswordRequest;
 import org.example.Broomate.dto.response.*;
 import org.example.Broomate.dto.response.allAuthUser.*;
 import org.example.Broomate.model.Account;
@@ -35,20 +33,21 @@ public class AllAuthUserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+    
     @Autowired
-    private  FileStorageService fileStorageService;
-
+    private FileStorageService fileStorageService;
 
     // ========================================
-    // 1. GET ALL CONVERSATIONS
+    // 1. GET ALL CONVERSATIONS (UPDATED)
     // ========================================
     public ConversationListResponse getAllConversations(String userId) {
         log.info("Getting all conversations for user: {}", userId);
 
         List<Conversation> conversations = repository.findConversationsByUserId(userId);
 
+        // ✅ UPDATED: Enrich conversations with participant data
         List<ConversationDetailResponse> conversationResponses = conversations.stream()
-                .map(ConversationDetailResponse::fromConversation)
+                .map(conversation -> enrichConversation(conversation, userId))
                 .collect(Collectors.toList());
 
         log.info("Found {} conversations for user: {}", conversationResponses.size(), userId);
@@ -60,16 +59,56 @@ public class AllAuthUserService {
                 .build();
     }
 
+    /**
+     * ✅ NEW METHOD: Enrich a conversation with participant data
+     */
+    private ConversationDetailResponse enrichConversation(Conversation conversation, String currentUserId) {
+        // Find the other participant (not the current user)
+        String otherUserId = conversation.getParticipantIds().stream()
+                .filter(id -> !id.equals(currentUserId))
+                .findFirst()
+                .orElse(null);
+
+        if (otherUserId == null) {
+            log.warn("Could not find other participant in conversation: {}", conversation.getId());
+            return ConversationDetailResponse.fromConversation(
+                    conversation,
+                    currentUserId,
+                    "Unknown User",
+                    null
+            );
+        }
+
+        // Fetch the other user's account
+        Account otherUser = repository.findAccountById(otherUserId).orElse(null);
+
+        if (otherUser == null) {
+            log.warn("Other participant not found for ID: {}", otherUserId);
+            return ConversationDetailResponse.fromConversation(
+                    conversation,
+                    currentUserId,
+                    "Deleted User",
+                    null
+            );
+        }
+
+        // Return conversation with enriched data
+        return ConversationDetailResponse.fromConversation(
+                conversation,
+                currentUserId,
+                otherUser.getName(),
+                otherUser.getAvatarUrl()
+        );
+    }
+
     // ========================================
     // 2. GET ALL ROOMS
     // ========================================
     public RoomListResponse getAllRooms() {
         log.info("Getting all published rooms");
 
-        // Get all published rooms
         List<Room> rooms = repository.findAllPublishedRooms();
 
-        // Convert to response DTOs
         List<RoomDetailResponse> roomResponses = rooms.stream()
                 .map(RoomDetailResponse::fromRoom)
                 .collect(Collectors.toList());
@@ -101,17 +140,15 @@ public class AllAuthUserService {
     // ========================================
     // 4. CHANGE PASSWORD
     // ========================================
-    public HTTPMessageResponse changePassword( String userId, ChangePasswordRequest request) {
+    public HTTPMessageResponse changePassword(String userId, ChangePasswordRequest request) {
         log.info("Changing password for user: {}", userId);
 
-        // 1. Get user account
         Account account = repository.findAccountById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "User not found with ID: " + userId
                 ));
 
-        // 2. Verify current password
         if (!passwordEncoder.matches(request.getCurrentPassword(), account.getPassword())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -119,7 +156,6 @@ public class AllAuthUserService {
             );
         }
 
-        // 3. Update to new password
         String hashedNewPassword = passwordEncoder.encode(request.getNewPassword());
         account.setPassword(hashedNewPassword);
         account.setUpdatedAt(Timestamp.now());
@@ -135,8 +171,7 @@ public class AllAuthUserService {
 
     // ========================================
     // 5. SEND MESSAGE WITH MEDIA
-
-// ========================================
+    // ========================================
     public MessageDetailResponse sendMessage(
             String userId,
             String conversationId,
@@ -148,27 +183,22 @@ public class AllAuthUserService {
         String uploadedMediaUrl = null;
 
         try {
-            // 1. Get conversation
             Conversation conversation = repository.findConversationById(conversationId)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND,
                             "Conversation not found with ID: " + conversationId
                     ));
 
-            // 2. Verify user is a participant
             if (!conversation.getParticipantIds().contains(userId)) {
                 throw new AccessDeniedException("You are not a participant in this conversation");
             }
 
-            // 3. Upload media file if provided
             if (media != null && !media.isEmpty()) {
-                // Determine folder based on file type
                 String folder = determineMediaFolder(media);
                 uploadedMediaUrl = fileStorageService.uploadFile(media, folder);
                 log.info("Media uploaded successfully: {}", uploadedMediaUrl);
             }
 
-            // 4. Create message
             List<String> mediaUrls = uploadedMediaUrl != null
                     ? List.of(uploadedMediaUrl)
                     : List.of();
@@ -179,15 +209,13 @@ public class AllAuthUserService {
                     .senderId(userId)
                     .content(request.getContent())
                     .mediaUrls(mediaUrls)
-                    .readBy(List.of(userId))  // Sender has read it
+                    .readBy(List.of(userId))
                     .createdAt(Timestamp.now())
                     .updatedAt(Timestamp.now())
                     .build();
 
-            // 5. Save message
             repository.saveMessage(message);
 
-            // 6. Update conversation's last message
             conversation.setLastMessage(request.getContent());
             conversation.setLastMessageAt(Timestamp.now());
             conversation.setUpdatedAt(Timestamp.now());
@@ -198,7 +226,6 @@ public class AllAuthUserService {
             return MessageDetailResponse.fromMessage(message);
 
         } catch (Exception e) {
-            // Rollback: Delete uploaded media if message sending fails
             log.error("Failed to send message, rolling back uploaded media", e);
             if (uploadedMediaUrl != null) {
                 fileStorageService.deleteFile(uploadedMediaUrl);
@@ -214,14 +241,11 @@ public class AllAuthUserService {
         }
     }
 
-    /**
-     * Determine the correct folder based on file type
-     */
     private String determineMediaFolder(MultipartFile file) {
         String contentType = file.getContentType();
 
         if (contentType == null) {
-            return "documents"; // Default
+            return "documents";
         }
 
         if (contentType.startsWith("image/")) {

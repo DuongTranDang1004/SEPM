@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import userService from '../../services/userService';
 
 function AccountPage() {
   const navigate = useNavigate();
@@ -45,30 +46,11 @@ function AccountPage() {
         return;
       }
 
-      // Dynamic endpoint based on role
-      const endpoint = userRole === 'TENANT' 
-        ? 'http://localhost:8080/api/tenant/profile'
-        : `http://localhost:8080/api/landlord/profile/${user.userId}`;
+      // ✅ Use userService instead of direct fetch
+      const data = userRole === 'TENANT' 
+        ? await userService.getTenantProfile()
+        : await userService.getLandlordProfile(user.userId);
 
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          navigate('/login');
-          return;
-        }
-        throw new Error('Failed to fetch profile');
-      }
-
-      const data = await response.json();
       setUserData(data);
       setUpdateFormData({...data});
 
@@ -154,24 +136,10 @@ function AccountPage() {
         formData.append('avatar', updateFormData.avatarFile);
       }
 
-      // Dynamic endpoint based on role
-      const endpoint = userRole === 'TENANT'
-        ? 'http://localhost:8080/api/tenant/profile'
-        : 'http://localhost:8080/api/landlord/profile';
-
-      const response = await fetch(endpoint, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        throw new Error(responseData.message || 'Failed to update profile');
-      }
+      // ✅ Use userService instead of direct fetch
+      const responseData = userRole === 'TENANT'
+        ? await userService.updateTenantProfile(formData)
+        : await userService.updateLandlordProfile(formData);
 
       setUserData(responseData);
       setUpdateFormData({...responseData});
@@ -203,26 +171,12 @@ function AccountPage() {
     setIsUpdating(true);
 
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch('http://localhost:8080/api/user/change-password', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword,
-          confirmPassword: passwordData.confirmPassword
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to change password');
-      }
+      // ✅ Use userService instead of direct fetch
+      await userService.changePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword,
+        passwordData.confirmPassword
+      );
 
       alert('Password changed successfully!');
       setShowPasswordModal(false);
@@ -422,6 +376,37 @@ function AccountPage() {
             className="w-full bg-red-500 text-white font-semibold py-3 rounded-lg hover:bg-red-600 transition"
           >
             Logout
+          </button>
+        </div>
+
+        {/* Section 4: Account Deactivation */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 mt-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Account Management</h2>
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-yellow-800">
+              ⚠️ <strong>Deactivate Account:</strong> Your account will be hidden but can be reactivated later. Your data will be preserved.
+            </p>
+          </div>
+
+          <button
+            onClick={async () => {
+              if (window.confirm('Are you sure you want to deactivate your account? You can reactivate it later by logging in.')) {
+                try {
+                  await userService.deactivateAccount();
+                  alert('Account deactivated successfully. Logging out...');
+                  localStorage.removeItem('user');
+                  localStorage.removeItem('token');
+                  navigate('/login');
+                } catch (error) {
+                  console.error('Error deactivating account:', error);
+                  alert('Failed to deactivate account. Please try again.');
+                }
+              }
+            }}
+            className="w-full bg-yellow-500 text-white font-semibold py-3 rounded-lg hover:bg-yellow-600 transition"
+          >
+            Deactivate Account
           </button>
         </div>
       </div>

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import authService from '../../services/authService';
+import userService from '../../services/userService';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -17,23 +19,7 @@ function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Handle error responses
-        throw new Error(data.message || 'Login failed');
-      }
+      const data = await authService.login(formData.email, formData.password);
 
       // Store token and user data
       localStorage.setItem('token', data.token);
@@ -56,9 +42,27 @@ function LoginPage() {
 
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'An error occurred during login. Please try again.');
-    } finally {
-      setIsLoading(false);
+      
+      // Check if account is deactivated
+      if (err.response?.data?.message?.includes('deactivated') || err.response?.status === 403) {
+        if (window.confirm('Your account is deactivated. Would you like to reactivate it?')) {
+          try {
+            // Get userId from error response or prompt user
+            const userId = err.response?.data?.userId;
+            if (userId) {
+              await userService.activateAccount(userId);
+              alert('Account reactivated! Please log in again.');
+              // Retry login
+              handleSubmit(e);
+            }
+          } catch (reactivateErr) {
+            console.error('Reactivation error:', reactivateErr);
+            setError('Failed to reactivate account. Please contact support.');
+          }
+        }
+      } else {
+        setError(err.response?.data?.message || 'An error occurred during login. Please try again.');
+      }
     }
   };
 

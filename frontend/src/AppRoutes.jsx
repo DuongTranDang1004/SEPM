@@ -1,17 +1,17 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from '../pages/auth/LoginPage';
-import SignupPage from '../pages/auth/SignupPage';
-import DashboardLayout from '../layouts/DashboardLayout';
-import TenantDashboard from '../pages/tenant/TenantDashboard';
-import LandlordDashboard from '../pages/landlord/LandlordDashboard';
-import MessagePage from '../pages/shared/MessagePage';
-import AccountPage from '../pages/shared/AccountPage'; // ✅ Unified dynamic account page
-import RoomDetailPage from '../pages/RoomDetailPage';
-import MatchPage from '../pages/tenant/MatchPage';
-import FindRoomsPage from '../pages/tenant/FindRoomsPage';
-import FindRoommatesPage from '../pages/tenant/FindRoommatesPage';
-import BookmarksPage from '../pages/tenant/BookmarksPage'; // ✅ NEW: Real BookmarksPage with API
+import LoginPage from './pages/auth/LoginPage';
+import SignupPage from './pages/auth/SignupPage';
+import DashboardLayout from './components/layout/DashboardLayout';
+import TenantDashboard from './pages/tenant/TenantDashboard';
+import LandlordDashboard from './pages/landlord/LandlordDashboard';
+import MessagePage from './pages/shared/MessagesPage';
+import AccountPage from './pages/shared/AccountPage'; // ✅ Unified dynamic account page
+import RoomDetailPage from './pages/shared/RoomDetailPage';
+import MatchPage from './pages/tenant/MatchPage';
+import FindRoomsPage from './pages/tenant/FindRoomsPage';
+import FindRoommatesPage from './pages/tenant/FindRoommatesPage';
+import BookmarksPage from './pages/tenant/BookmarksPage'; // ✅ NEW: Real BookmarksPage with API
 
 // Placeholder components for future development
 

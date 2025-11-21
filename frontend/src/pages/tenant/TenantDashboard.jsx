@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader } from 'lucide-react';
+import tenantService from '../../services/tenantService';
+import messageService from '../../services/messageService';
 
 function TenantDashboard() {
   const navigate = useNavigate();
@@ -97,54 +99,31 @@ function TenantDashboard() {
         return;
       }
 
-      // Fetch all stats in parallel
-      const [bookmarksRes, conversationsRes, matchesRes] = await Promise.allSettled([
-        // 1. Fetch bookmarks
-        fetch('http://localhost:8080/api/tenant/bookmarks', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }),
-
-        // 2. Fetch conversations
-        fetch('http://localhost:8080/api/user/conversations', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }),
-
-        // 3. Fetch matches (might not exist yet)
-        fetch('http://localhost:8080/api/tenant/matches', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
+      // ✅ Use services instead of direct fetch
+      const [bookmarksData, conversationsData, matchesData] = await Promise.allSettled([
+        tenantService.getBookmarks(),
+        messageService.getAllConversations(),
+        tenantService.getMatches()
       ]);
 
       // Process bookmarks
       let bookmarksCount = 0;
-      if (bookmarksRes.status === 'fulfilled' && bookmarksRes.value.ok) {
-        const bookmarksData = await bookmarksRes.value.json();
-        bookmarksCount = Array.isArray(bookmarksData) ? bookmarksData.length : 0;
+      if (bookmarksData.status === 'fulfilled') {
+        bookmarksCount = Array.isArray(bookmarksData.value) ? bookmarksData.value.length : 0;
       }
 
       // Process conversations
       let messagesCount = 0;
       let conversations = [];
-      if (conversationsRes.status === 'fulfilled' && conversationsRes.value.ok) {
-        const conversationsData = await conversationsRes.value.json();
-        conversations = conversationsData.conversations || [];
+      if (conversationsData.status === 'fulfilled') {
+        conversations = conversationsData.value.conversations || [];
         messagesCount = conversations.length;
       }
 
       // Process matches (gracefully handle if endpoint doesn't exist)
       let matchesCount = 0;
-      if (matchesRes.status === 'fulfilled' && matchesRes.value.ok) {
-        const matchesData = await matchesRes.value.json();
-        matchesCount = matchesData.matches?.length || matchesData.totalElements || 0;
+      if (matchesData.status === 'fulfilled') {
+        matchesCount = matchesData.value.matches?.length || matchesData.value.totalElements || 0;
       } else {
         console.log('Matches endpoint not available yet');
       }

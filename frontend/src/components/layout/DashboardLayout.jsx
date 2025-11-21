@@ -1,26 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import Navbar from '../components/layout/Navbar.jsx';
-import TenantSidebar from '../components/layout/TenantSidebar.jsx';
-import LandlordSidebar from '../components/layout/LandlordSidebar.jsx';
-import MessengerPopup from '../components/layout/MessengerPopup.jsx';
+import Navbar from './Navbar.jsx';
+import TenantSidebar from './TenantSidebar.jsx';
+import LandlordSidebar from './LandlordSidebar.jsx';
+import MessengerPopup from './MessengerPopup.jsx';
+import messageService from '../../services/messageService.js';
 
 function DashboardLayout() {
   const [isMessengerOpen, setIsMessengerOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
 
   // Determine user role from the route
-  // In a real app, you'd get this from context/auth state
   const isTenant = location.pathname.includes('/tenant');
   const isLandlord = location.pathname.includes('/landlord');
+
+  // ✅ Fetch unread message count on mount and when messenger closes
+  useEffect(() => {
+    fetchUnreadCount();
+  }, []);
+
+  // ✅ Refresh unread count when messenger closes
+  useEffect(() => {
+    if (!isMessengerOpen) {
+      fetchUnreadCount();
+    }
+  }, [isMessengerOpen]);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const data = await messageService.getAllConversations();
+      const conversations = data.conversations || [];
+      
+      // ✅ Calculate total unread messages
+      const totalUnread = conversations.reduce((sum, conv) => {
+        return sum + (conv.unreadCount || 0);
+      }, 0);
+      
+      setUnreadCount(totalUnread);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+      setUnreadCount(0);
+    }
+  };
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-pink-50 via-white to-teal-50">
       {/* Navigation Bar */}
       <Navbar 
         onOpenMessenger={() => setIsMessengerOpen(true)} 
-        unreadCount={3} 
+        unreadCount={unreadCount}  // ✅ Dynamic unread count
       />
 
       {/* Main Content with Sidebar */}
