@@ -13,6 +13,18 @@ function ConversationList({
   onSearchChange,
   compact = false
 }) {
+  // ✅ Helper to get conversation ID (handles both 'id' and 'conversationId')
+  const getConversationId = (conv) => {
+    return conv?.conversationId || conv?.id;
+  };
+
+  // ✅ Helper to check if conversation is selected
+  const isSelected = (conv) => {
+    const convId = getConversationId(conv);
+    const selectedId = getConversationId(selectedConversation);
+    return convId && selectedId && convId === selectedId;
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Search */}
@@ -36,61 +48,71 @@ function ConversationList({
             <p className="text-gray-500 text-sm">No conversations yet</p>
           </div>
         ) : (
-          conversations.map((conv) => (
-            <button
-              key={conv.conversationId}
-              onClick={() => onSelectConversation(conv)}
-              className={`w-full ${compact ? 'p-3' : 'p-4'} flex items-center gap-3 hover:bg-gray-50 transition border-b border-gray-100 text-left ${
-                selectedConversation?.conversationId === conv.conversationId
-                  ? 'bg-teal-50 border-l-4 border-l-teal-500'
-                  : ''
-              }`}
-            >
-              {/* Avatar */}
-              <div className="relative flex-shrink-0">
-                <img
-                  src={
-                    conv.otherParticipantAvatar ||
-                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      conv.otherParticipantName
-                    )}&background=14b8a6&color=fff`
-                  }
-                  alt={conv.otherParticipantName}
-                  className={`${compact ? 'w-10 h-10' : 'w-12 h-12'} rounded-full object-cover`}
-                  onError={(e) => {
-                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      conv.otherParticipantName
-                    )}&background=14b8a6&color=fff`;
-                  }}
-                />
-                {conv.unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {conv.unreadCount > 9 ? '9+' : conv.unreadCount}
-                  </span>
-                )}
-              </div>
+          conversations.map((conv) => {
+            const convId = getConversationId(conv);
+            
+            // Skip conversations without valid IDs
+            if (!convId) {
+              console.warn('⚠️ Conversation missing ID:', conv);
+              return null;
+            }
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start mb-1">
-                  <p className={`font-semibold text-gray-900 truncate ${compact ? 'text-sm' : ''}`}>
-                    {conv.otherParticipantName}
-                  </p>
-                  {/* ✅ Use lastMessageAt OR createdAt OR updatedAt */}
-                  {(conv.lastMessageAt || conv.updatedAt || conv.createdAt) && (
-                    <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                      {formatTimeAgo(conv.lastMessageAt || conv.updatedAt || conv.createdAt)}
+            return (
+              <button
+                key={convId}
+                onClick={() => onSelectConversation(conv)}
+                className={`w-full ${compact ? 'p-3' : 'p-4'} flex items-center gap-3 hover:bg-gray-50 transition border-b border-gray-100 text-left ${
+                  isSelected(conv)
+                    ? 'bg-teal-50 border-l-4 border-l-teal-500'
+                    : ''
+                }`}
+              >
+                {/* Avatar */}
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={
+                      conv.otherParticipantAvatar ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        conv.otherParticipantName
+                      )}&background=14b8a6&color=fff`
+                    }
+                    alt={conv.otherParticipantName}
+                    className={`${compact ? 'w-10 h-10' : 'w-12 h-12'} rounded-full object-cover`}
+                    onError={(e) => {
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        conv.otherParticipantName
+                      )}&background=14b8a6&color=fff`;
+                    }}
+                  />
+                  {conv.unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {conv.unreadCount > 9 ? '9+' : conv.unreadCount}
                     </span>
                   )}
                 </div>
-                <p className={`text-sm truncate ${
-                  conv.unreadCount > 0 ? 'font-semibold text-gray-900' : 'text-gray-600'
-                }`}>
-                  {conv.lastMessage || 'Start a conversation'}
-                </p>
-              </div>
-            </button>
-          ))
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start mb-1">
+                    <p className={`font-semibold text-gray-900 truncate ${compact ? 'text-sm' : ''}`}>
+                      {conv.otherParticipantName}
+                    </p>
+                    {/* ✅ Use lastMessageAt OR createdAt OR updatedAt */}
+                    {(conv.lastMessageAt || conv.updatedAt || conv.createdAt) && (
+                      <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                        {formatTimeAgo(conv.lastMessageAt || conv.updatedAt || conv.createdAt)}
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-sm truncate ${
+                    conv.unreadCount > 0 ? 'font-semibold text-gray-900' : 'text-gray-600'
+                  }`}>
+                    {conv.lastMessage || 'Start a conversation'}
+                  </p>
+                </div>
+              </button>
+            );
+          })
         )}
       </div>
     </div>

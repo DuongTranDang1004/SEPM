@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom'; // ✅ Added useLocation
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, X, CheckCircle, Loader } from 'lucide-react';
 import ConversationList from '../../components/messaging/ConversationList';
 import ChatWindow from '../../components/messaging/ChatWindow';
@@ -7,7 +7,7 @@ import messageService from '../../services/messageService';
 
 function MessagesPage() {
   const navigate = useNavigate();
-  const location = useLocation(); // ✅ Now imported
+  const location = useLocation();
 
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -20,22 +20,22 @@ function MessagesPage() {
   const [uploadCaption, setUploadCaption] = useState('');
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const currentUserId = user.userId; // ✅ FIXED: was user.id, should be user.userId
+  const currentUserId = user.userId;
 
   useEffect(() => {
     fetchConversations();
   }, []);
 
   useEffect(() => {
-    console.log('📍 Location state:', location.state);
-
     if (location.state?.conversationId && conversations.length > 0) {
       const convId = location.state.conversationId;
-      console.log('🔍 Looking for conversation:', convId);
-      console.log('📋 Available conversations:', conversations);
 
-      const conv = conversations.find(c => c.conversationId === convId);
-       if (conv) {
+      // ✅ Handle both 'conversationId' and 'id' field names
+      const conv = conversations.find(c => 
+        c.conversationId === convId || c.id === convId
+      );
+      
+      if (conv) {
         console.log('✅ Found conversation:', conv);
         handleSelectConversation(conv);
       } else {
@@ -47,8 +47,6 @@ function MessagesPage() {
   const fetchConversations = async () => {
     try {
       const data = await messageService.getAllConversations();
-      console.log('💬 Fetched conversations:', data);
-      console.log('📊 Number of conversations:', data.conversations?.length);
 
       setConversations(data.conversations || []);
     } catch (error) {
@@ -59,35 +57,61 @@ function MessagesPage() {
   };
 
   const handleSelectConversation = async (conversation) => {
+    // ✅ Handle both 'conversationId' and 'id' field names
+    const convId = conversation?.conversationId || conversation?.id;
+    
+    // ✅ CRITICAL: Validate conversation ID exists
+    if (!convId) {
+      console.error('❌ ERROR: No conversationId or id found in conversation object:', conversation);
+      alert('Cannot load conversation: Missing conversation ID');
+      return;
+    }
+
     setSelectedConversation(conversation);
 
     try {
-      const data = await messageService.getMessages(conversation.conversationId);
+      const data = await messageService.getMessages(convId);
+      console.log('✅ Messages loaded:', data);
       setMessages(data.messages || []);
       
       // Mark as read
-      await messageService.markAsRead(conversation.conversationId);
+      await messageService.markAsRead(convId);
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.error('❌ Error fetching messages:', error);
+      console.error('Error details:', error.response?.data || error.message);
       setMessages([]);
+      alert('Failed to load messages. Please try again.');
     }
   };
 
   const handleSendMessage = async (content) => {
-    if (!selectedConversation) return;
+    if (!selectedConversation) {
+      console.error('❌ No conversation selected');
+      return;
+    }
 
+    // ✅ Handle both 'conversationId' and 'id' field names
+    const convId = selectedConversation?.conversationId || selectedConversation?.id;
+    
+    // ✅ Validate conversation ID before sending
+    if (!convId) {
+      console.error('❌ Selected conversation has no ID:', selectedConversation);
+      alert('Cannot send message: Invalid conversation');
+      return;
+    }
+
+    console.log('📤 Sending message to:', convId);
     setIsSending(true);
 
     try {
-      const newMessage = await messageService.sendMessage(
-        selectedConversation.conversationId,
-        content
-      );
+      const newMessage = await messageService.sendMessage(convId, content);
 
+      console.log('✅ Message sent:', newMessage);
       setMessages(prev => [...prev, newMessage]);
     } catch (error) {
-      console.error('Error sending message:', error);
-      alert('Failed to send message.');
+      console.error('❌ Error sending message:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      alert('Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
     }
@@ -97,12 +121,22 @@ function MessagesPage() {
     e.preventDefault();
     if (!uploadFile || !selectedConversation) return;
 
+    // ✅ Handle both 'conversationId' and 'id' field names
+    const convId = selectedConversation?.conversationId || selectedConversation?.id;
+    
+    // ✅ Validate conversation ID before uploading
+    if (!convId) {
+      console.error('❌ Selected conversation has no ID:', selectedConversation);
+      alert('Cannot upload file: Invalid conversation');
+      return;
+    }
+
     setIsSending(true);
 
     try {
       const content = uploadCaption || `📎 ${uploadFile.name}`;
       const newMessage = await messageService.sendMessageWithMedia(
-        selectedConversation.conversationId,
+        convId,
         content,
         uploadFile
       );

@@ -31,6 +31,14 @@ function MessengerPopup({ isOpen, onClose }) {
   const fetchConversations = async () => {
     try {
       const data = await messageService.getAllConversations();
+      console.log('💬 MessengerPopup - Fetched conversations:', data.conversations?.length);
+      
+      // ✅ DEBUG: Log first conversation structure
+      if (data.conversations?.length > 0) {
+        console.log('🔍 First conversation structure:', data.conversations[0]);
+        console.log('🔑 First conversation ID:', data.conversations[0].conversationId || data.conversations[0].id);
+      }
+      
       setConversations(data.conversations || []);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -39,18 +47,42 @@ function MessengerPopup({ isOpen, onClose }) {
 
   // Select conversation and fetch messages
   const handleSelectConversation = async (conversation) => {
+    console.log('🎯 MessengerPopup - Selected conversation:', conversation);
+    
     setSelectedConversation(conversation);
     setIsLoading(true);
 
+    // ✅ Handle both 'conversationId' and 'id' field names
+    const convId = conversation?.conversationId || conversation?.id;
+    console.log('🔑 MessengerPopup - Extracted conversation ID:', convId);
+    
+    if (!convId) {
+      console.error('❌ No conversation ID found:', conversation);
+      alert('Cannot open conversation: Missing ID');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const data = await messageService.getMessages(conversation.conversationId);
+      console.log('📥 MessengerPopup - Fetching messages for:', convId);
+      const data = await messageService.getMessages(convId);
+      console.log('✅ MessengerPopup - Messages loaded:', data.messages?.length);
       setMessages(data.messages || []);
       
       // ✅ Mark messages as read when conversation is opened
-      await messageService.markAsRead(conversation.conversationId);
+      try {
+        await messageService.markAsRead(convId);
+      } catch (readError) {
+        console.warn('⚠️ Could not mark as read:', readError);
+        // Non-critical, continue anyway
+      }
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.error('❌ MessengerPopup - Error fetching messages:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      
+      // ✅ Start with empty messages (user can still send new ones)
       setMessages([]);
+      console.warn('⚠️ Starting with empty conversation');
     } finally {
       setIsLoading(false);
     }
@@ -58,19 +90,31 @@ function MessengerPopup({ isOpen, onClose }) {
 
   // Send message using service
   const handleSendMessage = async (content) => {
-    if (!selectedConversation) return;
+    if (!selectedConversation) {
+      console.error('❌ No conversation selected');
+      return;
+    }
 
+    // ✅ Handle both 'conversationId' and 'id' field names
+    const convId = selectedConversation?.conversationId || selectedConversation?.id;
+    
+    if (!convId) {
+      console.error('❌ No conversation ID found:', selectedConversation);
+      alert('Cannot send message: Invalid conversation');
+      return;
+    }
+
+    console.log('📤 MessengerPopup - Sending message to:', convId);
+    console.log('📝 Message content:', content);
     setIsSending(true);
 
     try {
-      const newMessage = await messageService.sendMessage(
-        selectedConversation.conversationId,
-        content
-      );
-
+      const newMessage = await messageService.sendMessage(convId, content);
+      console.log('✅ MessengerPopup - Message sent:', newMessage);
       setMessages(prev => [...prev, newMessage]);
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('❌ MessengerPopup - Error sending message:', error);
+      console.error('Error details:', error.response?.data || error.message);
       alert('Failed to send message. Please try again.');
     } finally {
       setIsSending(false);

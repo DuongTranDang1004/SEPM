@@ -8,7 +8,7 @@ function TenantDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     bookmarks: 0,
-    matches: 0,
+    matches: 0, // Kept for UI display, but not fetched from API
     messages: 0
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -19,7 +19,7 @@ function TenantDashboard() {
     fetchDashboardStats();
   }, []);
 
-  // ✅ NEW: Listen for activity updates from other pages
+  // ✅ Listen for activity updates from other pages
   useEffect(() => {
     const handleActivityUpdate = (event) => {
       const { type, data } = event.detail;
@@ -99,17 +99,18 @@ function TenantDashboard() {
         return;
       }
 
-      // ✅ Use services instead of direct fetch
-      const [bookmarksData, conversationsData, matchesData] = await Promise.allSettled([
+      // ✅ Fetch only bookmarks and conversations (matches removed per team decision)
+      const [bookmarksData, conversationsData] = await Promise.allSettled([
         tenantService.getBookmarks(),
-        messageService.getAllConversations(),
-        tenantService.getMatches()
+        messageService.getAllConversations()
       ]);
 
       // Process bookmarks
       let bookmarksCount = 0;
       if (bookmarksData.status === 'fulfilled') {
         bookmarksCount = Array.isArray(bookmarksData.value) ? bookmarksData.value.length : 0;
+      } else {
+        console.warn('Could not fetch bookmarks:', bookmarksData.reason);
       }
 
       // Process conversations
@@ -118,31 +119,54 @@ function TenantDashboard() {
       if (conversationsData.status === 'fulfilled') {
         conversations = conversationsData.value.conversations || [];
         messagesCount = conversations.length;
-      }
-
-      // Process matches (gracefully handle if endpoint doesn't exist)
-      let matchesCount = 0;
-      if (matchesData.status === 'fulfilled') {
-        matchesCount = matchesData.value.matches?.length || matchesData.value.totalElements || 0;
       } else {
-        console.log('Matches endpoint not available yet');
+        console.warn('Could not fetch conversations:', conversationsData.reason);
       }
 
       setStats({
         bookmarks: bookmarksCount,
-        matches: matchesCount,
+        matches: 0, // Matches feature not implemented per team agreement
         messages: messagesCount
       });
 
-      // Build recent activity from conversations (showing most recent)
-      const recentActivities = conversations.slice(0, 3).map(conv => ({
-        id: conv.conversationId,
-        type: 'message',
-        icon: '💬',
-        title: 'New message',
-        description: `${conv.otherParticipantName} sent you a message`,
-        time: conv.lastMessageAt || conv.createdAt
-      }));
+      // ✅ Build recent activity from conversations (showing most recent)
+      // Get current user ID to determine who sent the last message
+      const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').userId;
+      
+      const recentActivities = conversations.slice(0, 3).map(conv => {
+        // ✅ Check if backend provides lastMessageSenderId
+        let lastMessageFromMe = false;
+        let title = 'New message';
+        let description = `${conv.otherParticipantName}: ${conv.lastMessage || 'Sent you a message'}`;
+        
+        if (conv.lastMessageSenderId) {
+          // Backend provides the sender ID - use it!
+          lastMessageFromMe = conv.lastMessageSenderId === currentUserId;
+          
+          if (lastMessageFromMe) {
+            title = 'You sent a message';
+            description = `You: ${conv.lastMessage || 'Sent a message'}`;
+          } else {
+            title = 'New message';
+            description = `${conv.otherParticipantName}: ${conv.lastMessage || 'Sent you a message'}`;
+          }
+        } else {
+          // ⚠️ Backend doesn't provide lastMessageSenderId
+          // Without this field, we can't reliably determine who sent the last message
+          // Show generic activity without assuming sender
+          title = 'Message activity';
+          description = conv.lastMessage || `Conversation with ${conv.otherParticipantName}`;
+        }
+        
+        return {
+          id: conv.id || conv.conversationId,
+          type: 'message',
+          icon: '💬',
+          title: title,
+          description: description,
+          time: conv.lastMessageAt || conv.updatedAt || conv.createdAt
+        };
+      });
 
       setRecentActivity(recentActivities);
 
@@ -210,8 +234,8 @@ function TenantDashboard() {
           <p className="text-gray-600">Find your perfect room and ideal roommate</p>
         </div>
 
-        {/* Quick Stats - Now with Real Data! */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Quick Stats - Matches removed */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <button
             onClick={handleViewBookmarks}
             className="bg-white rounded-2xl p-6 shadow-lg border border-teal-100 hover:shadow-xl transition transform hover:scale-105 text-left"
@@ -222,20 +246,6 @@ function TenantDashboard() {
             </div>
             <p className="text-3xl font-bold text-teal-600">{stats.bookmarks}</p>
             <p className="text-sm text-gray-500 mt-2">Saved rooms</p>
-          </button>
-
-          <button
-            onClick={handleFindRoommates}
-            className="bg-white rounded-2xl p-6 shadow-lg border border-pink-100 hover:shadow-xl transition transform hover:scale-105 text-left"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Matches</h3>
-              <span className="text-3xl">👥</span>
-            </div>
-            <p className="text-3xl font-bold text-pink-600">{stats.matches}</p>
-            <p className="text-sm text-gray-500 mt-2">
-              {stats.matches === 0 ? 'Start swiping!' : 'Potential roommates'}
-            </p>
           </button>
 
           <button
@@ -319,8 +329,8 @@ function TenantDashboard() {
           )}
         </div>
 
-        {/* Stats Summary Footer */}
-        {(stats.bookmarks > 0 || stats.matches > 0 || stats.messages > 0) && (
+        {/* Stats Summary Footer - Updated to only show 2 stats */}
+        {(stats.bookmarks > 0 || stats.messages > 0) && (
           <div className="mt-6 bg-gradient-to-r from-teal-50 to-purple-50 rounded-xl p-6 border border-teal-100">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
@@ -331,10 +341,6 @@ function TenantDashboard() {
                 <div className="text-center">
                   <p className="font-bold text-teal-600 text-lg">{stats.bookmarks}</p>
                   <p className="text-gray-600 text-xs">Bookmarks</p>
-                </div>
-                <div className="text-center">
-                  <p className="font-bold text-pink-600 text-lg">{stats.matches}</p>
-                  <p className="text-gray-600 text-xs">Matches</p>
                 </div>
                 <div className="text-center">
                   <p className="font-bold text-purple-600 text-lg">{stats.messages}</p>
