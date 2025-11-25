@@ -1,24 +1,12 @@
-import React from 'react';
-import './Avatar.css';
+import React from 'react'
 
-function Avatar({ imageUrl, size = "medium", altText = "?" }) {
-  const rootClass = `avatar-root avatar-${size}`;
-  
-  let content;
-  
-  if (imageUrl) {
-    content = (
-      <div 
-        className="avatar-image"
-        style={{ backgroundImage: `url('${imageUrl}')` }}
-      />
+export default function Avatar({src, alt, size=50}){
+    return(
+        <img src= {src || '/default-avatar.png'} //uses default img if src is empty
+        alt={alt || 'User Avatar'}
+        width={50}
+        height={50}
+        style={{borderRadius: '50%'}} //round
+        />
     );
-  } else {
-    const fallbackText = altText ? altText[0].toUpperCase() : "?";
-    content = <div className="avatar-fallback">{fallbackText}</div>;
-  }
-  
-  return <div className={rootClass}>{content}</div>;
 }
-
-export default Avatar;

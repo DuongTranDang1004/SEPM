@@ -37,7 +37,7 @@ public class AuthService {
     private final FileStorageService fileStorageService;
 
     // ========================================
-    // 1. LOGIN (No changes needed)
+    // 1. LOGIN - ✅ FIXED: Auto-reactivate deactivated accounts
     // ========================================
     public AuthResponse login(LoginRequest request) {
         log.info("Login attempt for email: {}", request.getEmail());
@@ -49,12 +49,20 @@ public class AuthService {
                         "User not found with email: " + request.getEmail()
                 ));
 
-        // 2. Check if account is active
+        // 2. ✅ AUTO-REACTIVATE: Instead of blocking, reactivate deactivated accounts
         if (!account.isActive()) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Account is deactivated. Please activate your account first."
-            );
+            log.info("Auto-reactivating deactivated account for user: {}", account.getId());
+            account.setActive(true);
+            account.setUpdatedAt(Timestamp.now());
+            
+            // Save the updated account based on role
+            if (account.getRole() == Account.AccountRoleEnum.TENANT) {
+                authRepository.saveTenant((Tenant) account);
+            } else if (account.getRole() == Account.AccountRoleEnum.LANDLORD) {
+                authRepository.saveLandlord((Landlord) account);
+            }
+            
+            log.info("Account reactivated successfully for user: {}", account.getId());
         }
 
         // 3. Authenticate with Spring Security

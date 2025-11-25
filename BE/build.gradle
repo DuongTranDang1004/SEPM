@@ -29,7 +29,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
 //Spring Security
-	implementation "org.springframework.boot:spring-boot-starter-security"
+    implementation "org.springframework.boot:spring-boot-starter-security"
 
 
     // Firebase Admin SDK
@@ -49,7 +49,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     //JWT
-   // implementation 'com.auth0:java-jwt:4.5settings.gradle.0'
+    // implementation 'com.auth0:java-jwt:4.5settings.gradle.0'
 
     implementation 'com.auth0:java-jwt:4.4.0'
 //    //HTTP Client for Supabase

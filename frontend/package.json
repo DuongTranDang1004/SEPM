@@ -10,6 +10,7 @@
     "axios": "^1.13.1",
     "date-fns": "^4.1.0",
     "firebase": "^12.5.0",
+    "lucide-react": "^0.553.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.66.0",
@@ -23,7 +24,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "tailwind": "tailwindcss"
   },
   "eslintConfig": {
     "extends": [
@@ -50,6 +52,6 @@
     "lint-staged": "^16.2.6",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
-    "tailwindcss": "^4.1.16"
+    "tailwindcss": "^3.4.18"
   }
 }
