@@ -22,7 +22,6 @@ public class ConversationDetailResponse {
     @Schema(description = "Participant IDs", example = "[\"user1\", \"user2\"]")
     private List<String> participantIds;
 
-    // ✅ ADD THESE NEW FIELDS
     @Schema(description = "Other participant's user ID", example = "user456")
     private String otherParticipantId;
 
@@ -41,13 +40,20 @@ public class ConversationDetailResponse {
     @Schema(description = "Unread message count", example = "3")
     private Integer unreadCount;
 
+    // ✅ NEW: Messages list (optional - only populated when fetching conversation detail)
+    @Schema(description = "List of messages in this conversation")
+    private List<MessageDetailResponse> messages;
+
+    @Schema(description = "Total message count", example = "15")
+    private Integer totalMessages;
+
     @Schema(description = "Created timestamp", example = "2025-10-20T10:00:00Z")
     private String createdAt;
 
     @Schema(description = "Updated timestamp", example = "2025-10-24T12:30:00Z")
     private String updatedAt;
 
-    // ✅ UPDATED: Now requires otherParticipant info
+    // ✅ Original method - for conversation list (without messages)
     public static ConversationDetailResponse fromConversation(
             Conversation conversation,
             String currentUserId,
@@ -70,6 +76,39 @@ public class ConversationDetailResponse {
                 .lastMessageAt(conversation.getLastMessageAt() != null ?
                         conversation.getLastMessageAt().toString() : null)
                 .unreadCount(0) // TODO: Implement unread count logic
+                .createdAt(conversation.getCreatedAt() != null ?
+                        conversation.getCreatedAt().toString() : null)
+                .updatedAt(conversation.getUpdatedAt() != null ?
+                        conversation.getUpdatedAt().toString() : null)
+                .build();
+    }
+
+    // ✅ NEW: Overloaded method - for conversation detail (with messages)
+    public static ConversationDetailResponse fromConversationWithMessages(
+            Conversation conversation,
+            String currentUserId,
+            String otherParticipantName,
+            String otherParticipantAvatar,
+            List<MessageDetailResponse> messages
+    ) {
+        // Find the other participant ID
+        String otherParticipantId = conversation.getParticipantIds().stream()
+                .filter(id -> !id.equals(currentUserId))
+                .findFirst()
+                .orElse(null);
+
+        return ConversationDetailResponse.builder()
+                .id(conversation.getId())
+                .participantIds(conversation.getParticipantIds())
+                .otherParticipantId(otherParticipantId)
+                .otherParticipantName(otherParticipantName)
+                .otherParticipantAvatar(otherParticipantAvatar)
+                .lastMessage(conversation.getLastMessage())
+                .lastMessageAt(conversation.getLastMessageAt() != null ?
+                        conversation.getLastMessageAt().toString() : null)
+                .unreadCount(0) // TODO: Implement unread count logic
+                .messages(messages)
+                .totalMessages(messages != null ? messages.size() : 0)
                 .createdAt(conversation.getCreatedAt() != null ?
                         conversation.getCreatedAt().toString() : null)
                 .updatedAt(conversation.getUpdatedAt() != null ?

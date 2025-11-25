@@ -304,4 +304,59 @@ public class AllAuthUserService {
                 .message("Profile activated successfully")
                 .build();
     }
+    // ========================================
+// 1.5. GET CONVERSATION DETAIL WITH MESSAGES
+// ========================================
+    public ConversationDetailResponse getConversationDetail(String conversationId, String userId) {
+        log.info("Getting conversation detail for ID: {} by user: {}", conversationId, userId);
+
+        // Find conversation
+        Conversation conversation = repository.findConversationById(conversationId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Conversation not found with ID: " + conversationId
+                ));
+
+        // Check if user is participant
+        if (!conversation.getParticipantIds().contains(userId)) {
+            throw new AccessDeniedException("You are not a participant in this conversation");
+        }
+
+        // Get all messages in conversation
+        List<Message> messages = repository.findMessagesByConversationId(conversationId);
+
+        List<MessageDetailResponse> messageResponses = messages.stream()
+                .map(MessageDetailResponse::fromMessage)
+                .collect(Collectors.toList());
+
+        // Find the other participant
+        String otherUserId = conversation.getParticipantIds().stream()
+                .filter(id -> !id.equals(userId))
+                .findFirst()
+                .orElse(null);
+
+        String otherParticipantName = "Unknown User";
+        String otherParticipantAvatar = null;
+
+        if (otherUserId != null) {
+            Account otherUser = repository.findAccountById(otherUserId).orElse(null);
+            if (otherUser != null) {
+                otherParticipantName = otherUser.getName();
+                otherParticipantAvatar = otherUser.getAvatarUrl();
+            }
+        }
+
+        // ✅ Use the new method with messages
+        ConversationDetailResponse response = ConversationDetailResponse.fromConversationWithMessages(
+                conversation,
+                userId,
+                otherParticipantName,
+                otherParticipantAvatar,
+                messageResponses
+        );
+
+        log.info("Found {} messages in conversation: {}", messageResponses.size(), conversationId);
+
+        return response;
+    }
 }
