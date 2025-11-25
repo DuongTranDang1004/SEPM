@@ -6,6 +6,7 @@ import org.example.Broomate.dto.request.allAuthUser.ChangePasswordRequest;
 import org.example.Broomate.dto.request.allAuthUser.SendMessageRequest;
 import org.example.Broomate.dto.response.*;
 import org.example.Broomate.dto.response.allAuthUser.*;
+import org.example.Broomate.dto.websocket.NewMessageNotification;
 import org.example.Broomate.model.Account;
 import org.example.Broomate.model.Conversation;
 import org.example.Broomate.model.Message;
@@ -36,6 +37,8 @@ public class AllAuthUserService {
     
     @Autowired
     private FileStorageService fileStorageService;
+    @Autowired
+    private WebSocketService webSocketService;
 
     // ========================================
     // 1. GET ALL CONVERSATIONS (UPDATED)
@@ -220,6 +223,30 @@ public class AllAuthUserService {
             conversation.setLastMessageAt(Timestamp.now());
             conversation.setUpdatedAt(Timestamp.now());
             repository.updateConversation(conversationId, conversation);
+
+            log.info("Message sent successfully in conversation: {}", conversationId);
+// ✅ NEW: Send WebSocket notification to the other participant
+            String otherUserId = conversation.getParticipantIds().stream()
+                    .filter(id -> !id.equals(userId))
+                    .findFirst()
+                    .orElse(null);
+
+            if (otherUserId != null) {
+                // Get sender info
+                Account sender = repository.findAccountById(userId).orElse(null);
+
+                NewMessageNotification notification = NewMessageNotification.builder()
+                        .messageId(message.getId())
+                        .conversationId(conversationId)
+                        .senderId(userId)
+                        .senderName(sender != null ? sender.getName() : "Unknown User")
+                        .senderAvatar(sender != null ? sender.getAvatarUrl() : null)
+                        .content(request.getContent())
+                        .mediaUrls(mediaUrls)
+                        .build();
+
+                webSocketService.sendNewMessageNotification(otherUserId, notification);
+            }
 
             log.info("Message sent successfully in conversation: {}", conversationId);
 

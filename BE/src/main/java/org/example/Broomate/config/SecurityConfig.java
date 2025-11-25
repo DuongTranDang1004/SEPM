@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/rooms",          
+                                "/api/rooms",
                                 "/api/rooms/**",
                                 "/api/user/rooms",
                                 "/api/user/rooms/**",
@@ -47,9 +47,10 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/api-docs/**",
                                 "/swagger-resources/**",
-                                "/webjars/**"
+                                "/webjars/**",
+                                "/ws/**" // ✅ MOVED HERE - WebSocket endpoint
                         ).permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().authenticated() // ✅ This MUST be last
                 )
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
