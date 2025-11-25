@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 // In a real application, API_KEY would be managed securely (e.g., environment variables).
-const API_KEY = "AIzaSyAYZeuR0Q9py5VGni8wd2SheKhRaUnoQXQ"; 
+const API_KEY = ""; 
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=" + API_KEY; 
 
 // --- UTILITY FUNCTIONS --- 
@@ -69,7 +69,7 @@ export async function generateInitialQuestions(client1Data, client2Data) {
     The tone of these questions must be **collaborative, respectful, and constructive**, aiming to **propose compromises and mutually agreeable solutions** rather than imposing rigid rules.
     Example tone shift: Instead of asking, 'Will you commit to silence after 10 PM?', phrase it as, 'To ensure both of us have quiet time after 10 PM, what compromises or arrangements do you think would work best for both our schedules?'
     The output MUST be a JSON object with a "Type" of "Question" and exactly 5 questions, strictly following this structure: 
-    { "Type": "Question", "Question": [ "Friendly Question 1", "Friendly Question 2", "..." ] }`;
+    { "Type": "Question", "Question": [ "Friendly Question 1", "Friendly     Question 2", "..." ] }`;
 
     const userQuery = `Client 1 Data (The Asker): [${client1Data}]. Client 2 Data (The Answerer): [${client2Data}]. Provide the first 5 questions.`;
 
