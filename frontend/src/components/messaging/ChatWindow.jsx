@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+// ✅ Fix: Files now exist in the same directory, so relative imports should work.
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import { ArrowLeft, MoreVertical, Loader } from 'lucide-react';
@@ -37,15 +38,20 @@ function ChatWindow({
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col h-full bg-white">
       {/* Chat Header */}
-      <div className={`bg-white border-b border-gray-200 ${compact ? 'p-3' : 'p-4'} flex items-center justify-between`}>
+      <div className={`bg-white border-b border-gray-200 ${compact ? 'p-3' : 'p-4'} flex items-center justify-between flex-shrink-0`}>
         <div className="flex items-center gap-3">
-          {/* Back Button (for compact view) */}
-          {compact && onBack && (
+          {/* ✅ Back Button Logic Updated:
+              - Render if 'onBack' is provided.
+              - If not compact (full page), hide on desktop (lg:hidden) because list is visible side-by-side.
+              - If compact (popup), always show.
+          */}
+          {onBack && (
             <button
               onClick={onBack}
-              className="hover:bg-gray-100 p-1 rounded-full transition"
+              className={`hover:bg-gray-100 p-1 rounded-full transition ${!compact ? 'lg:hidden' : ''}`}
+              aria-label="Back to conversations"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -123,12 +129,14 @@ function ChatWindow({
       </div>
 
       {/* Message Input */}
-      <MessageInput
-        onSendMessage={onSendMessage}
-        onAttachFile={onAttachFile}
-        isSending={isSending}
-        compact={compact}
-      />
+      <div className="flex-shrink-0 bg-white">
+        <MessageInput
+            onSendMessage={onSendMessage}
+            onAttachFile={onAttachFile}
+            isSending={isSending}
+            compact={compact}
+        />
+      </div>
     </div>
   );
 }

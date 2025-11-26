@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, X, CheckCircle, Loader } from 'lucide-react';
-import ConversationList from '../../components/messaging/ConversationList';
+// Update the import path if necessary to match where you saved the previous component
+import ConversationList from '../../components/messaging/ConversationList'; 
 import ChatWindow from '../../components/messaging/ChatWindow';
 import messageService from '../../services/messageService';
 
@@ -166,9 +167,19 @@ function MessagesPage() {
   }
 
   return (
-    <div className="h-full flex bg-gray-50">
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b">
+    <div className="h-full flex bg-gray-50 overflow-hidden relative">
+      {/* ✅ Left Side: Conversation List Wrapper
+        - Mobile: w-full (full screen)
+        - Desktop: w-80 (fixed width)
+        - Hidden on mobile if a conversation is selected
+      */}
+      <div className={`
+        flex flex-col bg-white border-r border-gray-200 h-full transition-all
+        w-full lg:w-80
+        ${selectedConversation ? 'hidden lg:flex' : 'flex'}
+      `}>
+        {/* Header Section */}
+        <div className="p-4 border-b flex-shrink-0">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -179,26 +190,41 @@ function MessagesPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Messages</h2>
         </div>
 
+        {/* ✅ ConversationList
+           - Used in compact mode because this wrapper handles the layout and header.
+        */}
         <ConversationList
           conversations={filteredConversations}
           selectedConversation={selectedConversation}
           onSelectConversation={handleSelectConversation}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          compact={false}
+          compact={true} 
         />
       </div>
 
-      <ChatWindow
-        conversation={selectedConversation}
-        messages={messages}
-        currentUserId={currentUserId}
-        onSendMessage={handleSendMessage}
-        onAttachFile={() => setShowUploadModal(true)}
-        isSending={isSending}
-        compact={false}
-      />
+      {/* ✅ Right Side: Chat Window Wrapper
+        - Mobile: Hidden if no conversation selected
+        - Desktop: Always visible (flex-1)
+      */}
+      <div className={`
+        flex-1 flex flex-col h-full bg-white
+        ${!selectedConversation ? 'hidden lg:flex' : 'flex'}
+      `}>
+        <ChatWindow
+          conversation={selectedConversation}
+          messages={messages}
+          currentUserId={currentUserId}
+          onSendMessage={handleSendMessage}
+          onAttachFile={() => setShowUploadModal(true)}
+          isSending={isSending}
+          compact={false}
+          // ✅ Pass a handler to go back to the list on mobile
+          onBack={() => setSelectedConversation(null)}
+        />
+      </div>
 
+      {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">

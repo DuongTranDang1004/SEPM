@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Search, ChevronLeft } from 'lucide-react';
 
 /**
  * Reusable conversation list component
@@ -11,7 +11,10 @@ function ConversationList({
   onSelectConversation,
   searchQuery,
   onSearchChange,
-  compact = false
+  compact = false,
+  // New props for mobile responsiveness
+  isMobileVisible = true, // Controls visibility on small screens
+  onBackClick // Function to call when "Back" is clicked on mobile
 }) {
   // ✅ Helper to get conversation ID (handles both 'id' and 'conversationId')
   const getConversationId = (conv) => {
@@ -24,11 +27,49 @@ function ConversationList({
     const selectedId = getConversationId(selectedConversation);
     return convId && selectedId && convId === selectedId;
   };
+  
+  // Mobile classes for sliding effect
+  const mobileVisibilityClasses = isMobileVisible 
+    ? 'translate-x-0' // Visible: takes full screen
+    : '-translate-x-full'; // Hidden: slides off screen to the left
+    
+  // Base width for desktop view (lg:)
+  const baseWidthClasses = compact ? 'w-full' : 'w-full lg:w-96'; 
 
   return (
-    <div className="flex flex-col h-full">
+    // Apply mobile and desktop layout classes
+    <div className={`
+        flex flex-col h-full bg-white 
+        ${baseWidthClasses}
+        ${!compact ? 'lg:flex-shrink-0' : ''} // prevent shrinking on desktop for MessagesPage
+        
+        /* Mobile Overlay Setup: only applied when not 'compact' (i.e., full page) */
+        ${compact ? '' : 'absolute inset-y-0 left-0 z-20 transition-transform duration-300 lg:relative lg:translate-x-0'} 
+        ${!compact ? mobileVisibilityClasses : ''} // Apply sliding only if not compact
+        ${!compact && selectedConversation ? 'border-r-0' : 'border-r border-gray-200'}
+    `}>
+        
+      {/* Header: Back Button (Mobile only) and Title */}
+      <div className={`flex items-center ${compact ? 'p-3' : 'p-4'} border-b border-gray-200`}>
+        {/* Back Button - Visible on mobile when a conversation is selected (list is hidden) */}
+        {!compact && !isMobileVisible && (
+          <button 
+            onClick={onBackClick}
+            className="p-2 mr-3 rounded-full hover:bg-gray-100 lg:hidden text-gray-700"
+            aria-label="Back to conversations"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+        )}
+        
+        {/* Title - Visible when list is visible (or if it's the compact popup) */}
+        {(!compact && isMobileVisible) || compact ? (
+           <h2 className="text-xl font-bold text-gray-900 flex-1">Messages</h2>
+        ) : null}
+      </div>
+
       {/* Search */}
-      <div className={`${compact ? 'p-3' : 'p-4'} border-b border-gray-200`}>
+      <div className={`${compact ? 'p-3' : 'p-4'} ${!compact && isMobileVisible ? 'border-b border-gray-200' : ''}`}>
         <div className="relative">
           <Search className={`absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 ${compact ? 'w-4 h-4' : 'w-5 h-5'}`} />
           <input
