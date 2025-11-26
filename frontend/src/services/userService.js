@@ -17,8 +17,13 @@ const userService = {
   },
 
   // ===== LANDLORD PROFILE =====
-  async getLandlordProfile(userId) {
-    const response = await api.get(`/landlord/profile/${userId}`);
+  /**
+   * Get landlord profile by ID
+   * Backend: GET /api/landlord/profile/{landlordId}
+   * Note: Unlike tenant profile, this endpoint requires landlordId parameter
+   */
+  async getLandlordProfile() {
+    const response = await api.get('/landlord/profile');  // No parameter
     return response.data;
   },
 
@@ -34,11 +39,6 @@ const userService = {
   // ===== ACCOUNT MANAGEMENT =====
   async deactivateAccount() {
     const response = await api.put('/user/deactivate');
-    return response.data;
-  },
-
-  async activateAccount(userId) {
-    const response = await api.put(`/user/activate/${userId}`);
     return response.data;
   },
 

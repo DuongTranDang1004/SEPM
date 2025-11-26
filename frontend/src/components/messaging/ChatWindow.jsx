@@ -1,6 +1,8 @@
+// src/components/messaging/ChatWindow.jsx
+
 import React, { useRef, useEffect } from 'react';
 import MessageBubble from './MessageBubble';
-import MessageInput from './MessageInput';
+import MessageInput from './MessageInput';  
 import { ArrowLeft, MoreVertical, Loader } from 'lucide-react';
 
 /**
@@ -11,8 +13,8 @@ function ChatWindow({
   conversation,
   messages,
   currentUserId,
-  onSendMessage,
-  onAttachFile,
+  onSendMessage,     // ✅ NOW: (content, file) => Promise
+  // onAttachFile,   // ❌ REMOVE - No longer needed
   onBack,
   isSending = false,
   isLoading = false,
@@ -99,13 +101,7 @@ function ChatWindow({
         ) : (
           <>
             {messages.map((msg, index) => {
-              // ✅ IMPORTANT: Verify this comparison matches your backend
               const isMyMessage = msg.senderId === currentUserId;
-              
-              // ✅ Debug log (remove in production)
-              if (process.env.NODE_ENV === 'development' && index === 0) {
-                console.log('Message senderId:', msg.senderId, 'Current userId:', currentUserId);
-              }
               
               return (
                 <MessageBubble
@@ -122,10 +118,9 @@ function ChatWindow({
         )}
       </div>
 
-      {/* Message Input */}
+      {/* ✅ Message Input - Now handles files internally */}
       <MessageInput
-        onSendMessage={onSendMessage}
-        onAttachFile={onAttachFile}
+        onSendMessage={onSendMessage}  // ✅ Passes (content, file) signature
         isSending={isSending}
         compact={compact}
       />

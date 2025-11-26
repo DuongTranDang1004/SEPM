@@ -14,6 +14,7 @@ import {
   XCircle,
   User,
   Mail,
+  Phone,
   Share2,
   Loader,
   ChevronLeft,
@@ -23,7 +24,6 @@ import {
 } from 'lucide-react';
 import roomService from '../../services/roomService';
 import tenantService from '../../services/tenantService';
-import messageService from '../../services/messageService';
 
 function RoomDetailPage() {
   const { roomId } = useParams();
@@ -37,14 +37,12 @@ function RoomDetailPage() {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
 
   useEffect(() => {
     fetchRoomDetails();
     checkIfBookmarked();
   }, [roomId]);
 
-  // ✅ Fetch room details using service
   const fetchRoomDetails = async () => {
     try {
       const data = await roomService.getRoomById(roomId);
@@ -62,7 +60,6 @@ function RoomDetailPage() {
     }
   };
 
-  // ✅ Check if room is bookmarked using service
   const checkIfBookmarked = async () => {
     try {
       const bookmarks = await tenantService.getBookmarks();
@@ -75,7 +72,6 @@ function RoomDetailPage() {
     }
   };
 
-  // ✅ Toggle bookmark using service
   const handleToggleBookmark = async () => {
     setBookmarkLoading(true);
     try {
@@ -93,26 +89,25 @@ function RoomDetailPage() {
     }
   };
 
-  // ✅ Contact landlord - create conversation using service
-  const handleContactLandlord = async () => {
-    setIsCreatingConversation(true);
-
-    try {
-      // Create or get existing conversation with landlord
-      const conversation = await messageService.createOrGetConversation(room.landlordId);
-      
-      // Navigate to messages page with conversation
-      navigate('/dashboard/messages', {
-        state: {
-          conversationId: conversation.conversationId,
-          recipientName: room.landlordName
+  // ✅ UPDATED: Multiple contact options
+  const handleContactLandlord = (method) => {
+    switch(method) {
+      case 'email':
+        if (room.landlordEmail) {
+          window.location.href = `mailto:${room.landlordEmail}?subject=Inquiry about ${room.title}`;
         }
-      });
-    } catch (error) {
-      console.error('Error creating conversation:', error);
-      alert('Failed to start conversation. Please try again.');
-    } finally {
-      setIsCreatingConversation(false);
+        break;
+      case 'phone':
+        if (room.landlordPhone) {
+          window.location.href = `tel:${room.landlordPhone}`;
+        }
+        break;
+      case 'message':
+        // ⚠️ Backend endpoint not yet available
+        alert('💬 In-app messaging coming soon!\n\nFor now, please use email or phone to contact the landlord.\n\n📧 Email: ' + (room.landlordEmail || 'Not provided') + '\n📱 Phone: ' + (room.landlordPhone || 'Not provided'));
+        break;
+      default:
+        break;
     }
   };
 
@@ -225,7 +220,21 @@ function RoomDetailPage() {
 
               <button
                 onClick={() => {
-                  alert('Share functionality coming soon!');
+                  if (navigator.share) {
+                    navigator.share({
+                      title: room.title,
+                      text: `Check out this room: ${room.title}`,
+                      url: window.location.href
+                    }).catch(() => {
+                      // Fallback: copy to clipboard
+                      navigator.clipboard.writeText(window.location.href);
+                      alert('Link copied to clipboard!');
+                    });
+                  } else {
+                    // Fallback: copy to clipboard
+                    navigator.clipboard.writeText(window.location.href);
+                    alert('Link copied to clipboard!');
+                  }
                 }}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:border-gray-400 transition"
               >
@@ -470,7 +479,7 @@ function RoomDetailPage() {
 
           {/* Right Column - Landlord Info & Actions */}
           <div className="space-y-6">
-            {/* Landlord Card */}
+            {/* Landlord Card - ✅ UPDATED with multiple contact options */}
             <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 sticky top-24">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Contact Landlord</h3>
               
@@ -484,36 +493,68 @@ function RoomDetailPage() {
                 </div>
               </div>
 
-              {room.landlordEmail && (
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <Mail className="w-5 h-5 text-teal-600" />
-                    <span className="text-sm">{room.landlordEmail}</span>
+              {/* ✅ Contact Options */}
+              <div className="space-y-3 mb-6">
+                {/* Email */}
+                {room.landlordEmail && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Mail className="w-5 h-5 text-teal-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-600 mb-1">Email</p>
+                      <p className="text-sm text-gray-900 truncate">{room.landlordEmail}</p>
+                    </div>
                   </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleContactLandlord}
-                disabled={isCreatingConversation}
-                className="w-full px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl font-semibold hover:shadow-lg transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isCreatingConversation ? (
-                  <>
-                    <Loader className="w-5 h-5 animate-spin" />
-                    <span>Loading...</span>
-                  </>
-                ) : (
-                  <>
-                    <MessageSquare className="w-5 h-5" />
-                    <span>Send Message</span>
-                  </>
                 )}
-              </button>
+
+                {/* Phone */}
+                {room.landlordPhone && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Phone className="w-5 h-5 text-teal-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-600 mb-1">Phone</p>
+                      <p className="text-sm text-gray-900">{room.landlordPhone}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ✅ Contact Buttons */}
+              <div className="space-y-3">
+                {/* Email Button */}
+                {room.landlordEmail && (
+                  <button
+                    onClick={() => handleContactLandlord('email')}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl font-semibold hover:shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2"
+                  >
+                    <Mail className="w-5 h-5" />
+                    <span>Send Email</span>
+                  </button>
+                )}
+
+                {/* Phone Button */}
+                {room.landlordPhone && (
+                  <button
+                    onClick={() => handleContactLandlord('phone')}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2"
+                  >
+                    <Phone className="w-5 h-5" />
+                    <span>Call Now</span>
+                  </button>
+                )}
+
+                {/* In-app Message Button (Coming Soon) */}
+                <button
+                  onClick={() => handleContactLandlord('message')}
+                  className="w-full px-6 py-3 bg-gray-400 text-white rounded-xl font-semibold cursor-pointer hover:bg-gray-500 transition flex items-center justify-center gap-2"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  <span>Message (Coming Soon)</span>
+                </button>
+              </div>
 
               <div className="mt-4 p-4 bg-teal-50 rounded-lg border border-teal-100">
                 <p className="text-xs text-gray-600 text-center">
-                  Message the landlord to schedule a viewing or ask questions
+                  💡 Contact the landlord to schedule a viewing or ask questions about the property
                 </p>
               </div>
             </div>

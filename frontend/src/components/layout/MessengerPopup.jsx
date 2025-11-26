@@ -88,32 +88,38 @@ function MessengerPopup({ isOpen, onClose }) {
     }
   };
 
-  // Send message using service
-  const handleSendMessage = async (content) => {
+  // ✅ UPDATED - Send message with optional file
+  const handleSendMessage = async (content, file = null) => {
     if (!selectedConversation) {
       console.error('❌ No conversation selected');
       return;
     }
 
-    // ✅ Handle both 'conversationId' and 'id' field names
     const convId = selectedConversation?.conversationId || selectedConversation?.id;
     
     if (!convId) {
-      console.error('❌ No conversation ID found:', selectedConversation);
+      console.error('❌ No conversation ID found');
       alert('Cannot send message: Invalid conversation');
       return;
     }
 
-    console.log('📤 MessengerPopup - Sending message to:', convId);
-    console.log('📝 Message content:', content);
+    console.log('📤 Sending message:', { 
+      conversationId: convId, 
+      hasContent: !!content, 
+      hasFile: !!file,
+      fileName: file?.name 
+    });
+    
     setIsSending(true);
 
     try {
-      const newMessage = await messageService.sendMessage(convId, content);
-      console.log('✅ MessengerPopup - Message sent:', newMessage);
+      // ✅ Call updated service with file support
+      const newMessage = await messageService.sendMessage(convId, content, file);
+      
+      console.log('✅ Message sent successfully:', newMessage);
       setMessages(prev => [...prev, newMessage]);
     } catch (error) {
-      console.error('❌ MessengerPopup - Error sending message:', error);
+      console.error('❌ Error sending message:', error);
       console.error('Error details:', error.response?.data || error.message);
       alert('Failed to send message. Please try again.');
     } finally {

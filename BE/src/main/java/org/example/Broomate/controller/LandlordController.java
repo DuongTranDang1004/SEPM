@@ -305,9 +305,13 @@ public class LandlordController {
     }
 
     @Operation(summary = "Get landlord profile")
-    @GetMapping("/profile/{landlordId}")
-    public ResponseEntity<LandlordProfileResponse> getProfile(@PathVariable String landlordId) {
+    // ✅ RECOMMENDED - Only allow viewing own profile
+    @GetMapping("/profile")
+    public ResponseEntity<LandlordProfileResponse> getProfile(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        String landlordId = userDetails.getUserId();
         LandlordProfileResponse response = landlordService.getProfile(landlordId);
         return ResponseEntity.ok(response);
-    }
+    } 
 }
