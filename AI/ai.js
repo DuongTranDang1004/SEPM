@@ -9,7 +9,7 @@ const scoreRouter = require('./score.router.js');
 
 const app = express();
 // Đặt cổng mặc định là 3000 (hoặc đọc từ env)
-const PORT = process.env.PORT || 3000; 
+const PORT = process.env.PORT || 3001; 
 
 // --- GLOBAL MIDDLEWARE ---
 // 1. CORS: Cho phép mọi nguồn gốc truy cập
@@ -28,7 +28,7 @@ app.use('/api', imageRouter);
 // Gắn Score Router vào đường dẫn '/api'
 // -> Các route sẽ là /api/v1/questions, /api/v1/score, /api/v1/followup-questions
 // Lưu ý: Score Router đã có tiền tố '/v1' bên trong, nên ở đây chỉ cần '/api'
-app.use('/api', scoreRouter); 
+app.use('/api/v1', scoreRouter); 
 
 // --- SERVER STARTUP ---
 app.listen(PORT, () => {

@@ -10,7 +10,7 @@
     "concurrently": "^9.2.1"
   },
   "scripts": {
-          "start-server": "node ai.js",
-        "dev": "npm run start-server"
-        }
+    "start-server": "node ai.js",
+    "dev": "npm run start-server"
+  }
 }
