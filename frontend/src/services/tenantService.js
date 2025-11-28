@@ -9,8 +9,9 @@ const tenantService = {
     return response.data;
   },
 
+  // ✅ FIXED: Removed 's' from profiles to match backend
   getProfile: async (tenantId) => {
-    const response = await api.get(`/tenant/profiles/${tenantId}`);
+    const response = await api.get(`/tenant/profile/${tenantId}`);
     return response.data;
   },
 

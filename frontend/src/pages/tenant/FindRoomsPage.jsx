@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  MapPin, DollarSign, Calendar, Bookmark, Search, 
+  MapPin, Calendar, Bookmark, Search, 
   SlidersHorizontal, ChevronLeft, Filter, X, Loader
 } from 'lucide-react';
+import roomService from '../../services/roomService';
+import tenantService from '../../services/tenantService';
 
 /**
  * FindRoomsPage - Browse and filter available rooms
- * Connected to real backend API
+ * ✅ Now using roomService and tenantService for all API calls
  */
 function FindRoomsPage() {
   const navigate = useNavigate();
@@ -43,66 +45,43 @@ function FindRoomsPage() {
     fetchBookmarks();
   }, []);
 
+  // ✅ FIXED: Use roomService instead of direct fetch
   const fetchRooms = async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      const response = await fetch('http://localhost:8080/api/user/rooms', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          navigate('/login');
-          return;
-        }
-        throw new Error('Failed to fetch rooms');
-      }
-
-      const data = await response.json();
-      console.log('Fetched rooms:', data); // Debug log
+      const data = await roomService.getAllRooms();
+      console.log('Fetched rooms:', data);
       
       setRooms(data.rooms || []);
       setFilteredRooms(data.rooms || []);
     } catch (err) {
       console.error('Error fetching rooms:', err);
+      
+      // Handle 401 - redirect to login
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+        return;
+      }
+      
       setError('Failed to load rooms. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ✅ FIXED: Use tenantService instead of direct fetch
   const fetchBookmarks = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8080/api/tenant/bookmarks', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const bookmarks = await response.json();
-        const bookmarkedIds = new Set(bookmarks.map(b => b.roomId));
-        setBookmarkedRoomIds(bookmarkedIds);
-      }
+      const bookmarks = await tenantService.getBookmarks();
+      const bookmarkedIds = new Set(bookmarks.map(b => b.room?.id || b.roomId));
+      setBookmarkedRoomIds(bookmarkedIds);
     } catch (err) {
       console.error('Error fetching bookmarks:', err);
+      // Don't show error to user - bookmarks are optional
     }
   };
 
@@ -182,41 +161,23 @@ function FindRoomsPage() {
     setFilteredRooms(filtered);
   }, [filters, searchQuery, rooms]);
 
+  // ✅ FIXED: Use tenantService instead of direct fetch
   const toggleBookmark = async (roomId) => {
     try {
-      const token = localStorage.getItem('token');
       const isBookmarked = bookmarkedRoomIds.has(roomId);
 
       if (isBookmarked) {
         // Unbookmark
-        const response = await fetch(`http://localhost:8080/api/tenant/bookmarks/rooms/${roomId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+        await tenantService.removeBookmark(roomId);
+        setBookmarkedRoomIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(roomId);
+          return newSet;
         });
-
-        if (response.ok) {
-          setBookmarkedRoomIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(roomId);
-            return newSet;
-          });
-        }
       } else {
         // Bookmark
-        const response = await fetch(`http://localhost:8080/api/tenant/bookmarks/rooms/${roomId}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          setBookmarkedRoomIds(prev => new Set(prev).add(roomId));
-        }
+        await tenantService.addBookmark(roomId);
+        setBookmarkedRoomIds(prev => new Set(prev).add(roomId));
       }
     } catch (err) {
       console.error('Error toggling bookmark:', err);

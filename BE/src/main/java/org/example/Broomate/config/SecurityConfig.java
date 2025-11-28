@@ -33,13 +33,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ Enable CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        // Public endpoints - no authentication required
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/rooms",          
-                                "/api/rooms/**",
                                 "/api/user/rooms",
                                 "/api/user/rooms/**",
                                 "/swagger-ui/**",
@@ -47,13 +46,21 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/api-docs/**",
                                 "/swagger-resources/**",
-                                "/webjars/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                                "/webjars/**")
+                        .permitAll()
+
+                        // ✅ LANDLORD endpoints - require LANDLORD authority
+                        .requestMatchers("/api/landlord/**").hasAuthority("LANDLORD")
+
+                        // ✅ TENANT endpoints - require TENANT authority
+                        .requestMatchers("/api/tenant/**").hasAuthority("TENANT")
+
+                        // ✅ USER endpoints - require either LANDLORD or TENANT authority
+                        .requestMatchers("/api/user/**").hasAnyAuthority("LANDLORD", "TENANT")
+
+                        // Everything else requires authentication
+                        .anyRequest().authenticated())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -79,7 +86,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
+            throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
 }

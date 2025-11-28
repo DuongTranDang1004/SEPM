@@ -4,12 +4,16 @@ import org.example.Broomate.model.Account;
 import org.example.Broomate.repository.GuestAuthRepository;
 import org.example.Broomate.config.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 
 /**
  * CustomUserDetailsService that uses EMAIL instead of username
@@ -27,13 +31,18 @@ public class CustomUserDetailsService implements UserDetailsService {
         Account account = authRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        // ✅ Return CustomUserDetails with userId, email, role
+        // ✅ FIXED: Create authorities from role
+        Collection<GrantedAuthority> authorities = Collections.singletonList(
+                new SimpleGrantedAuthority(account.getRole().toString())  // "LANDLORD" or "TENANT"
+        );
+
+        // ✅ Return CustomUserDetails with userId, email, role, and authorities
         return new CustomUserDetails(
                 account.getId(),                    // userId
                 account.getEmail(),                 // email
                 account.getPassword(),              // password
-                account.getRole(),       // role (TENANT/LANDLORD)
-                new ArrayList<>()                   // authorities
+                account.getRole(),                  // role (TENANT/LANDLORD)
+                authorities                         // ✅ NOW HAS AUTHORITIES!
         );
     }
 }

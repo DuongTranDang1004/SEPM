@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, X, CheckCircle, Loader } from 'lucide-react';
-// Update the import path if necessary to match where you saved the previous component
-import ConversationList from '../../components/messaging/ConversationList'; 
+import { ArrowLeft, Loader } from 'lucide-react';
+import ConversationList from '../../components/messaging/ConversationList';
 import ChatWindow from '../../components/messaging/ChatWindow';
 import messageService from '../../services/messageService';
 
@@ -16,9 +15,6 @@ function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadFile, setUploadFile] = useState(null);
-  const [uploadCaption, setUploadCaption] = useState('');
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const currentUserId = user.userId;
@@ -31,7 +27,7 @@ function MessagesPage() {
     if (location.state?.conversationId && conversations.length > 0) {
       const convId = location.state.conversationId;
 
-      // ✅ Handle both 'conversationId' and 'id' field names
+      // Handle both 'conversationId' and 'id' field names
       const conv = conversations.find(c => 
         c.conversationId === convId || c.id === convId
       );
@@ -48,7 +44,6 @@ function MessagesPage() {
   const fetchConversations = async () => {
     try {
       const data = await messageService.getAllConversations();
-
       setConversations(data.conversations || []);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -58,10 +53,10 @@ function MessagesPage() {
   };
 
   const handleSelectConversation = async (conversation) => {
-    // ✅ Handle both 'conversationId' and 'id' field names
+    // Handle both 'conversationId' and 'id' field names
     const convId = conversation?.conversationId || conversation?.id;
     
-    // ✅ CRITICAL: Validate conversation ID exists
+    // Validate conversation ID exists
     if (!convId) {
       console.error('❌ ERROR: No conversationId or id found in conversation object:', conversation);
       alert('Cannot load conversation: Missing conversation ID');
@@ -85,27 +80,35 @@ function MessagesPage() {
     }
   };
 
-  const handleSendMessage = async (content) => {
+  // ✅ UPDATED: Now accepts file parameter like MessengerPopup
+  const handleSendMessage = async (content, file = null) => {
     if (!selectedConversation) {
       console.error('❌ No conversation selected');
       return;
     }
 
-    // ✅ Handle both 'conversationId' and 'id' field names
+    // Handle both 'conversationId' and 'id' field names
     const convId = selectedConversation?.conversationId || selectedConversation?.id;
     
-    // ✅ Validate conversation ID before sending
+    // Validate conversation ID before sending
     if (!convId) {
       console.error('❌ Selected conversation has no ID:', selectedConversation);
       alert('Cannot send message: Invalid conversation');
       return;
     }
 
-    console.log('📤 Sending message to:', convId);
+    console.log('📤 Sending message:', { 
+      conversationId: convId, 
+      hasContent: !!content, 
+      hasFile: !!file,
+      fileName: file?.name 
+    });
+    
     setIsSending(true);
 
     try {
-      const newMessage = await messageService.sendMessage(convId, content);
+      // ✅ Use same service method as MessengerPopup with file support
+      const newMessage = await messageService.sendMessage(convId, content, file);
 
       console.log('✅ Message sent:', newMessage);
       setMessages(prev => [...prev, newMessage]);
@@ -113,42 +116,6 @@ function MessagesPage() {
       console.error('❌ Error sending message:', error);
       console.error('Error details:', error.response?.data || error.message);
       alert('Failed to send message. Please try again.');
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleUploadSubmit = async (e) => {
-    e.preventDefault();
-    if (!uploadFile || !selectedConversation) return;
-
-    // ✅ Handle both 'conversationId' and 'id' field names
-    const convId = selectedConversation?.conversationId || selectedConversation?.id;
-    
-    // ✅ Validate conversation ID before uploading
-    if (!convId) {
-      console.error('❌ Selected conversation has no ID:', selectedConversation);
-      alert('Cannot upload file: Invalid conversation');
-      return;
-    }
-
-    setIsSending(true);
-
-    try {
-      const content = uploadCaption || `📎 ${uploadFile.name}`;
-      const newMessage = await messageService.sendMessageWithMedia(
-        convId,
-        content,
-        uploadFile
-      );
-
-      setMessages(prev => [...prev, newMessage]);
-      setShowUploadModal(false);
-      setUploadFile(null);
-      setUploadCaption('');
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Failed to upload file.');
     } finally {
       setIsSending(false);
     }
@@ -167,6 +134,7 @@ function MessagesPage() {
   }
 
   return (
+<<<<<<< HEAD
     <div className="h-full flex bg-gray-50 overflow-hidden relative">
       {/* ✅ Left Side: Conversation List Wrapper
         - Mobile: w-full (full screen)
@@ -180,6 +148,12 @@ function MessagesPage() {
       `}>
         {/* Header Section */}
         <div className="p-4 border-b flex-shrink-0">
+=======
+    <div className="h-full flex bg-gray-50">
+      {/* Conversation List Sidebar */}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+        <div className="p-4 border-b">
+>>>>>>> origin/Hau_Frontend_MergeLandlords
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -203,6 +177,7 @@ function MessagesPage() {
         />
       </div>
 
+<<<<<<< HEAD
       {/* ✅ Right Side: Chat Window Wrapper
         - Mobile: Hidden if no conversation selected
         - Desktop: Always visible (flex-1)
@@ -266,6 +241,17 @@ function MessagesPage() {
           </div>
         </div>
       )}
+=======
+      {/* Chat Window - Now with file upload support via MessageInput */}
+      <ChatWindow
+        conversation={selectedConversation}
+        messages={messages}
+        currentUserId={currentUserId}
+        onSendMessage={handleSendMessage}
+        isSending={isSending}
+        compact={false}
+      />
+>>>>>>> origin/Hau_Frontend_MergeLandlords
     </div>
   );
 }

@@ -1,7 +1,9 @@
 // src/pages/landlord/UploadRoomPage.jsx
 import React, { useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import PublishedRoomCard from "../../components/landlord/PublishedRoomCard";
-import Confetti from "react-confetti"; // Nhớ npm install react-confetti
+import landlordService from "../../services/landlordService";
+import Confetti from "react-confetti";
 import "./upload-room.css";
 
 const FALLBACK_IMG =
@@ -17,6 +19,8 @@ const formatVnd = (n) =>
       }).format(n);
 
 export default function UploadRoomPage() {
+  const navigate = useNavigate();
+
   const [room, setRoom] = useState({
     title: "",
     description: "",
@@ -28,25 +32,26 @@ export default function UploadRoomPage() {
     numberOfToilets: 1,
     numberOfBedRooms: 1,
     hasWindow: true,
-    status: "DRAFT",
   });
 
   // media state
-  const [images, setImages] = useState([]); // 0–3
-  const [videos, setVideos] = useState([]); // 0–2
-  const [documents, setDocuments] = useState([]); // 0–3
+  const [images, setImages] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [documents, setDocuments] = useState([]);
 
   // UI state
-  const [submitted, setSubmitted] = useState(false); // màn celebrate
-  const [saving, setSaving] = useState(false); // overlay “Saving…”
-  const [dragOver, setDragOver] = useState(null); // "images" | "videos" | "docs" | null
+  const [submitted, setSubmitted] = useState(false);
+  const [createdRoom, setCreatedRoom] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [dragOver, setDragOver] = useState(null);
+  const [error, setError] = useState(null);
 
   // input refs
   const imgInputRef = useRef(null);
   const vidInputRef = useRef(null);
   const docInputRef = useRef(null);
 
-  // index preview cho từng loại media
+  // index preview
   const [currentIdx, setCurrentIdx] = useState({
     images: 0,
     videos: 0,
@@ -66,11 +71,6 @@ export default function UploadRoomPage() {
     setSubmitted(false);
   };
 
-  const handleSelect = (field) => (e) => {
-    setRoom((prev) => ({ ...prev, [field]: e.target.value }));
-    setSubmitted(false);
-  };
-
   /* -------- media: add file ---------- */
   const addFiles = useCallback((type, fileList) => {
     const files = Array.from(fileList || []);
@@ -79,22 +79,31 @@ export default function UploadRoomPage() {
     if (type === "images") {
       setImages((prev) => {
         const merged = [...prev, ...files];
-        if (merged.length > 3) alert("Chỉ chọn tối đa 3 ảnh.");
-        return merged.slice(0, 3);
+        if (merged.length > 3) {
+          alert("Maximum 3 images allowed.");
+          return merged.slice(0, 3);
+        }
+        return merged;
       });
       setCurrentIdx((prev) => ({ ...prev, images: 0 }));
     } else if (type === "videos") {
       setVideos((prev) => {
         const merged = [...prev, ...files];
-        if (merged.length > 2) alert("Chỉ chọn tối đa 2 video.");
-        return merged.slice(0, 2);
+        if (merged.length > 2) {
+          alert("Maximum 2 videos allowed.");
+          return merged.slice(0, 2);
+        }
+        return merged;
       });
       setCurrentIdx((prev) => ({ ...prev, videos: 0 }));
     } else if (type === "docs") {
       setDocuments((prev) => {
         const merged = [...prev, ...files];
-        if (merged.length > 3) alert("Chỉ chọn tối đa 3 tài liệu.");
-        return merged.slice(0, 3);
+        if (merged.length > 3) {
+          alert("Maximum 3 documents allowed.");
+          return merged.slice(0, 3);
+        }
+        return merged;
       });
       setCurrentIdx((prev) => ({ ...prev, docs: 0 }));
     }
@@ -173,10 +182,7 @@ export default function UploadRoomPage() {
     const many = list.length > 1;
 
     return (
-      <div
-        className="media-previewLarge"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="media-previewLarge" onClick={(e) => e.stopPropagation()}>
         {type === "images" ? (
           <img src={url} alt={file.name} className="media-previewImg" />
         ) : type === "videos" ? (
@@ -188,7 +194,6 @@ export default function UploadRoomPage() {
           </div>
         )}
 
-        {/* remove current file */}
         <button
           type="button"
           className="media-removeBtn"
@@ -232,71 +237,128 @@ export default function UploadRoomPage() {
   };
 
   /* ---------- submit ---------- */
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const payload = {
-      title: room.title,
-      description: room.description,
-      rentPricePerMonth: Number(room.rentPricePerMonth) || 0,
-      minimumStayMonths: room.minimumStayMonths || 1,
-      address: room.address,
-      latitude: room.latitude || null,
-      longitude: room.longitude || null,
-      numberOfToilets: room.numberOfToilets || 1,
-      numberOfBedRooms: room.numberOfBedRooms || 1,
-      hasWindow: room.hasWindow,
-      status: room.status,
-    };
+    // Build FormData matching backend parameter names EXACTLY
+    const formData = new FormData();
 
-    console.log("UpdateRoomRequest payload:", payload);
-    console.log("Media:", { images, videos, documents });
+    // Basic fields - MUST match LandlordController @RequestParam names
+    formData.append('title', room.title);
+    formData.append('description', room.description || '');
+    formData.append('rentPricePerMonth', Number(room.rentPricePerMonth) || 0);
+    formData.append('minimumStayMonths', room.minimumStayMonths || 1);
+    formData.append('address', room.address);
+    
+    if (room.latitude) formData.append('latitude', room.latitude);
+    if (room.longitude) formData.append('longitude', room.longitude);
+    
+    formData.append('numberOfToilets', room.numberOfToilets || 1);
+    formData.append('numberOfBedRooms', room.numberOfBedRooms || 1);
+    formData.append('hasWindow', room.hasWindow);
 
-    // fake API
-    setSaving(true);
-    setSubmitted(false);
+    // Media files - MUST match @RequestPart names in backend
+    // Thumbnail: use first image
+    if (images.length > 0) {
+      formData.append('thumbnail', images[0]);
+    }
 
-    setTimeout(() => {
+    // Images
+    images.forEach(file => {
+      formData.append('images', file);
+    });
+
+    // Videos
+    videos.forEach(file => {
+      formData.append('videos', file);
+    });
+
+    // Documents
+    documents.forEach(file => {
+      formData.append('documents', file);
+    });
+
+    try {
+      setSaving(true);
+      setSubmitted(false);
+      setError(null);
+
+      console.log('Creating room with data...');
+      
+      const response = await landlordService.createRoom(formData);
+      
+      console.log('Room created successfully:', response);
+
+      setCreatedRoom(response);
       setSaving(false);
       setSubmitted(true);
-    }, 1000); // Tăng thời gian giả lập lên xíu để thấy hiệu ứng loading
+
+      // Navigate to room detail after 3 seconds
+      setTimeout(() => {
+        navigate(`/rooms/${response.id}`, {
+          state: { room: response, from: 'upload-room' }
+        });
+      }, 3000);
+
+    } catch (err) {
+      console.error('Failed to create room:', err);
+      setSaving(false);
+      setError(err.response?.data?.message || 'Failed to create room. Please try again.');
+
+      // Redirect to login if 401
+      if (err.response?.status === 401) {
+        navigate('/login');
+      }
+    }
   };
 
-  const previewUrl =
-    images[0] ? URL.createObjectURL(images[0]) : FALLBACK_IMG;
+  const previewUrl = images[0] ? URL.createObjectURL(images[0]) : FALLBACK_IMG;
 
   /* ---------- RENDER ---------- */
   return (
-    <div className="upload-page">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-blue-50 to-white">
+        <div className="upload-page">
       <div className="upload-headerChip">Room Information</div>
+
+      {/* Error message */}
+      {error && (
+        <div style={{
+          background: '#fee2e2',
+          border: '1px solid #ef4444',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          color: '#991b1b'
+        }}>
+          <strong>Error:</strong> {error}
+        </div>
+      )}
 
       {/* overlay "saving" */}
       {saving && (
         <div className="upload-overlay">
           <div className="upload-loadingCard">
             <div className="loading-spinner" />
-            <p className="loading-title">Saving your room…</p>
+            <p className="loading-title">Creating your room…</p>
             <p className="loading-sub">
-              Please wait while we validate data and attach media files.
+              Please wait while we upload files and save your room.
             </p>
           </div>
         </div>
       )}
 
-      {/* NẾU ĐÃ SUBMIT → CHỈ HIỆN CELEBRATE VIEW */}
-      {submitted ? (
+      {/* SUCCESS VIEW */}
+      {submitted && createdRoom ? (
         <>
-          {/* Pháo giấy */}
           <Confetti
             width={window.innerWidth}
             height={window.innerHeight}
             numberOfPieces={600}
             gravity={0.2}
-            recycle={false} // Chỉ nổ 1 lần rồi dừng
+            recycle={false}
           />
-          
+
           <div className="upload-celebrate">
-            {/* Animated Checkmark SVG */}
             <div className="checkmark-wrapper">
               <svg className="checkmark-svg" viewBox="0 0 52 52">
                 <circle
@@ -314,31 +376,19 @@ export default function UploadRoomPage() {
               </svg>
             </div>
 
-            <h2 className="celebrate-title">Room Saved Successfully!</h2>
+            <h2 className="celebrate-title">Room Created Successfully!</h2>
             <p className="celebrate-text">
-              Your room <strong>"{room.title}"</strong> has been created. <br />
-              It is now ready to be viewed by potential tenants.
+              Your room <strong>"{createdRoom.title}"</strong> has been created. <br />
+              Redirecting to room details...
             </p>
 
-            {/* Card Preview */}
             <div className="celebrate-card-preview">
               <PublishedRoomCard
-                title={room.title || "Room title"}
-                location={room.address || "Location"}
-                description={
-                  room.description ||
-                  "Lorem ipsum dolor sit amet consectetur. Aliquet accumsan sed vestibulum."
-                }
-                rentLabel={
-                  room.rentPricePerMonth
-                    ? formatVnd(room.rentPricePerMonth)
-                    : "₫ 5.000.000"
-                }
-                subletDuration={
-                  room.minimumStayMonths
-                    ? `${room.minimumStayMonths}+ months`
-                    : "1–6 Months"
-                }
+                title={createdRoom.title || "Room title"}
+                location={createdRoom.address || "Location"}
+                description={createdRoom.description || "No description"}
+                rentLabel={formatVnd(createdRoom.rentPricePerMonth)}
+                subletDuration={`${createdRoom.minimumStayMonths}+ months`}
                 imgUrl={previewUrl}
               />
             </div>
@@ -347,13 +397,24 @@ export default function UploadRoomPage() {
               type="button"
               className="celebrate-againBtn"
               onClick={() => {
-                // Reset form để tạo phòng mới
                 setSubmitted(false);
-                setRoom({ ...room, title: "", description: "" });
+                setCreatedRoom(null);
+                setRoom({
+                  title: "",
+                  description: "",
+                  rentPricePerMonth: "",
+                  minimumStayMonths: 1,
+                  address: "",
+                  latitude: "",
+                  longitude: "",
+                  numberOfToilets: 1,
+                  numberOfBedRooms: 1,
+                  hasWindow: true,
+                });
                 setImages([]);
                 setVideos([]);
                 setDocuments([]);
-                window.scrollTo(0,0);
+                window.scrollTo(0, 0);
               }}
             >
               Upload Another Room
@@ -361,9 +422,8 @@ export default function UploadRoomPage() {
           </div>
         </>
       ) : (
-        /* FORM NHẬP LIỆU */
+        /* FORM */
         <div className="upload-grid">
-          {/* LEFT: FORM */}
           <form className="upload-form" onSubmit={handleSubmit}>
             {/* Basic details */}
             <section className="upload-section">
@@ -386,7 +446,7 @@ export default function UploadRoomPage() {
                   type="text"
                   value={room.address}
                   onChange={handleChange("address")}
-                  placeholder="Indiranagar, Bengaluru"
+                  placeholder="123 Main Street, District 7, HCMC"
                   required
                 />
               </div>
@@ -433,19 +493,6 @@ export default function UploadRoomPage() {
               </div>
 
               <div className="upload-row">
-                <div className="upload-field">
-                  <label>Status *</label>
-                  <select
-                    value={room.status}
-                    onChange={handleSelect("status")}
-                    required
-                  >
-                    <option value="DRAFT">Draft</option>
-                    <option value="PUBLISHED">Published</option>
-                    <option value="HIDDEN">Hidden</option>
-                  </select>
-                </div>
-
                 <div className="upload-field upload-checkboxField">
                   <label>Has window</label>
                   <label className="switch">
@@ -514,7 +561,7 @@ export default function UploadRoomPage() {
             </section>
 
             <button type="submit" className="upload-submit">
-              Save room
+              Create Room
             </button>
           </form>
 
@@ -687,6 +734,7 @@ export default function UploadRoomPage() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

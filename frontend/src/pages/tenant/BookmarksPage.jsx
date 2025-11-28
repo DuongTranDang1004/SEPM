@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  MapPin, DollarSign, Calendar, Bookmark, ChevronLeft, 
+  MapPin, Calendar, Bookmark, ChevronLeft, 
   Loader, Trash2, ExternalLink 
 } from 'lucide-react';
+import tenantService from '../../services/tenantService';
 
 /**
  * BookmarksPage - Display user's saved/bookmarked rooms
- * Connected to real backend API
+ * ✅ Now using tenantService for all API calls
  */
 function BookmarksPage() {
   const navigate = useNavigate();
@@ -21,47 +22,33 @@ function BookmarksPage() {
     fetchBookmarks();
   }, []);
 
+  // ✅ FIXED: Use tenantService instead of direct fetch
   const fetchBookmarks = async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const data = await tenantService.getBookmarks();
+      console.log('Fetched bookmarks:', data);
+      setBookmarks(data || []);
+    } catch (err) {
+      console.error('Error fetching bookmarks:', err);
+      
+      // Handle 401 - redirect to login
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         navigate('/login');
         return;
       }
-
-      const response = await fetch('http://localhost:8080/api/tenant/bookmarks', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          navigate('/login');
-          return;
-        }
-        throw new Error('Failed to fetch bookmarks');
-      }
-
-      const data = await response.json();
-      console.log('Fetched bookmarks:', data); // Debug log
-      setBookmarks(data || []);
-
-    } catch (err) {
-      console.error('Error fetching bookmarks:', err);
+      
       setError('Failed to load bookmarks. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ✅ FIXED: Use tenantService instead of direct fetch
   const handleUnbookmark = async (roomId, bookmarkId) => {
     if (!window.confirm('Remove this room from your bookmarks?')) {
       return;
@@ -71,23 +58,10 @@ function BookmarksPage() {
     setDeletingIds(prev => new Set(prev).add(bookmarkId));
 
     try {
-      const token = localStorage.getItem('token');
+      await tenantService.removeBookmark(roomId);
       
-      const response = await fetch(`http://localhost:8080/api/tenant/bookmarks/rooms/${roomId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to unbookmark room');
-      }
-
       // Remove from local state
       setBookmarks(prev => prev.filter(b => b.id !== bookmarkId));
-
     } catch (err) {
       console.error('Error unbookmarking:', err);
       alert('Failed to remove bookmark. Please try again.');
