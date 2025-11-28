@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Loader } from 'lucide-react';
+// ✅ ADDED: Icons required for the Upload Modal (X and CheckCircle)
+import { ArrowLeft, Loader, X, CheckCircle } from 'lucide-react'; 
 import ConversationList from '../../components/messaging/ConversationList';
 import ChatWindow from '../../components/messaging/ChatWindow';
 import messageService from '../../services/messageService';
@@ -15,6 +16,13 @@ function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+
+  // ✅ ADDED: State for managing the file upload modal (showUploadModal)
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  // ✅ ADDED: State for managing the file to be uploaded (uploadFile)
+  const [uploadFile, setUploadFile] = useState(null);
+  // ✅ ADDED: State for managing the caption for the uploaded file (uploadCaption)
+  const [uploadCaption, setUploadCaption] = useState('');
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const currentUserId = user.userId;
@@ -121,6 +129,31 @@ function MessagesPage() {
     }
   };
 
+  // ✅ ADDED: Handle the file upload submission from the modal
+  const handleUploadSubmit = useCallback(async (e) => {
+    e.preventDefault();
+
+    if (!uploadFile || !selectedConversation) {
+        alert('Please select a file and ensure a conversation is selected.');
+        return;
+    }
+    
+    // Pass the file object directly to the message sending handler
+    // The content will be the caption, and the file will be the media
+    try {
+        await handleSendMessage(uploadCaption, uploadFile);
+        
+        // Reset modal state on success
+        setUploadFile(null);
+        setUploadCaption('');
+        setShowUploadModal(false);
+
+    } catch (error) {
+        console.error("Error during file upload process:", error);
+        alert('File submission failed.');
+    }
+  }, [uploadFile, uploadCaption, selectedConversation, handleSendMessage]); // Include handleSendMessage in dependencies
+
   const filteredConversations = conversations.filter(conv =>
     conv.otherParticipantName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -134,7 +167,6 @@ function MessagesPage() {
   }
 
   return (
-<<<<<<< HEAD
     <div className="h-full flex bg-gray-50 overflow-hidden relative">
       {/* ✅ Left Side: Conversation List Wrapper
         - Mobile: w-full (full screen)
@@ -148,12 +180,6 @@ function MessagesPage() {
       `}>
         {/* Header Section */}
         <div className="p-4 border-b flex-shrink-0">
-=======
-    <div className="h-full flex bg-gray-50">
-      {/* Conversation List Sidebar */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b">
->>>>>>> origin/Hau_Frontend_MergeLandlords
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
@@ -165,7 +191,7 @@ function MessagesPage() {
         </div>
 
         {/* ✅ ConversationList
-           - Used in compact mode because this wrapper handles the layout and header.
+            - Used in compact mode because this wrapper handles the layout and header.
         */}
         <ConversationList
           conversations={filteredConversations}
@@ -177,7 +203,6 @@ function MessagesPage() {
         />
       </div>
 
-<<<<<<< HEAD
       {/* ✅ Right Side: Chat Window Wrapper
         - Mobile: Hidden if no conversation selected
         - Desktop: Always visible (flex-1)
@@ -190,11 +215,14 @@ function MessagesPage() {
           conversation={selectedConversation}
           messages={messages}
           currentUserId={currentUserId}
-          onSendMessage={handleSendMessage}
+          // The ChatWindow's MessageInput handles the standard text content send
+          onSendMessage={handleSendMessage} 
+          // ✅ Passed setShowUploadModal(true) to open the modal
           onAttachFile={() => setShowUploadModal(true)}
           isSending={isSending}
-          compact={false}
-          // ✅ Pass a handler to go back to the list on mobile
+          // Set to true here because the full page version already manages the header/layout
+          compact={false} 
+          // ✅ Handler to go back to the list on mobile
           onBack={() => setSelectedConversation(null)}
         />
       </div>
@@ -205,20 +233,28 @@ function MessagesPage() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">Upload Media</h3>
-              <button onClick={() => setShowUploadModal(false)}>
-                <X className="w-6 h-6" />
+              {/* ✅ X component is now imported */}
+              <button onClick={() => {
+                  setShowUploadModal(false);
+                  setUploadFile(null); // Reset file when closing
+                  setUploadCaption(''); // Reset caption when closing
+              }}>
+                <X className="w-6 h-6 text-gray-600 hover:text-gray-900" />
               </button>
             </div>
+            {/* ✅ handleUploadSubmit is now defined */}
             <form onSubmit={handleUploadSubmit} className="space-y-4">
               <input
                 type="file"
                 onChange={(e) => setUploadFile(e.target.files[0])}
                 accept="image/*,video/*,.pdf,.doc,.docx,.csv"
-                required
-                className="w-full px-4 py-2 border rounded-lg"
+                // Made required property conditional based on the uploadFile state
+                required={!uploadFile} 
+                className="w-full px-4 py-2 border rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
               />
               {uploadFile && (
-                <p className="text-sm text-teal-600 flex items-center gap-2">
+                <p className="text-sm text-teal-600 flex items-center gap-2 font-medium">
+                  {/* ✅ CheckCircle component is now imported */}
                   <CheckCircle className="w-4 h-4" />
                   {uploadFile.name}
                 </p>
@@ -227,13 +263,18 @@ function MessagesPage() {
                 value={uploadCaption}
                 onChange={(e) => setUploadCaption(e.target.value)}
                 rows="3"
-                placeholder="Add a caption..."
-                className="w-full px-4 py-2 border rounded-lg"
+                placeholder="Add a caption (optional)..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition resize-none"
               />
               <button
                 type="submit"
-                disabled={isSending}
-                className="w-full bg-teal-600 text-white py-3 rounded-lg hover:bg-teal-700"
+                // Disable if a file is not selected OR if a message is already sending
+                disabled={isSending || !uploadFile} 
+                className={`w-full text-white py-3 rounded-lg font-semibold transition 
+                  ${isSending || !uploadFile 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-teal-600 hover:bg-teal-700'
+                  }`}
               >
                 {isSending ? 'Sending...' : 'Send File'}
               </button>
@@ -241,17 +282,6 @@ function MessagesPage() {
           </div>
         </div>
       )}
-=======
-      {/* Chat Window - Now with file upload support via MessageInput */}
-      <ChatWindow
-        conversation={selectedConversation}
-        messages={messages}
-        currentUserId={currentUserId}
-        onSendMessage={handleSendMessage}
-        isSending={isSending}
-        compact={false}
-      />
->>>>>>> origin/Hau_Frontend_MergeLandlords
     </div>
   );
 }
