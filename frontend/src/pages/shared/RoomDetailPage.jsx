@@ -1,12 +1,12 @@
-// src/pages/shared/RoomDetailPage.jsx
 import React, { useEffect, useState } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
+import { 
+  MapPin, Calendar, Bookmark, ChevronLeft, Loader,
+  Home, Bed, Bath, CheckCircle, XCircle
+} from 'lucide-react';
+import roomService from "../../services/roomService";
 import landlordService from "../../services/landlordService";
 import tenantService from "../../services/tenantService";
-import "./room-detail.css";
-
-const FALLBACK_IMG =
-  "https://images.unsplash.com/photo-1505692794401-7a51e21c7c52?q=80&w=1600&auto=format&fit=crop";
 
 const formatVnd = (n) =>
   !n
@@ -31,7 +31,9 @@ function RoomDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
 
   // UI states
+  const [loading, setLoading] = useState(!location.state?.room);
   const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarking, setBookmarking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [error, setError] = useState(null);
@@ -40,27 +42,53 @@ function RoomDetailPage() {
   const isTenant = currentUser.role === 'tenant';
   const isOwnerLandlord =
     currentUser.role === 'landlord' &&
-    currentUser.userId === room?.landlordUserId;
+    currentUser.userId === room?.landlordId;
 
-  // Fetch room data if not passed via location.state
+  // ✅ Fetch room data by ID if not passed via location.state
   useEffect(() => {
-    if (!room) {
-      console.warn(
-        "No room passed via location.state. You may want to fetch by roomId from API:",
-        roomId
-      );
-      // TODO: Add API call to fetch room by ID
-      // const fetchRoom = async () => {
-      //   try {
-      //     const data = await roomService.getRoomById(roomId);
-      //     setRoom(data);
-      //   } catch (err) {
-      //     setError(err.response?.data?.message || 'Room not found');
-      //   }
-      // };
-      // fetchRoom();
+    if (!room && roomId) {
+      fetchRoomById();
     }
   }, [room, roomId]);
+
+  // ✅ Check if room is bookmarked (tenant only)
+  useEffect(() => {
+    if (room && isTenant) {
+      checkIfBookmarked();
+    }
+  }, [room, isTenant]);
+
+  const fetchRoomById = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await roomService.getRoomById(roomId);
+      console.log('Fetched room:', data);
+      setRoom(data);
+    } catch (err) {
+      console.error('Error fetching room:', err);
+      setError(err.response?.data?.message || 'Room not found');
+      
+      if (err.response?.status === 401) {
+        navigate('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkIfBookmarked = async () => {
+    try {
+      const bookmarks = await tenantService.getBookmarks();
+      const isBookmarked = bookmarks.some(b => 
+        (b.room?.id || b.roomId) === room.id
+      );
+      setBookmarked(isBookmarked);
+    } catch (err) {
+      console.error('Error checking bookmark status:', err);
+    }
+  };
 
   // Initialize form data when room loads
   useEffect(() => {
@@ -70,8 +98,8 @@ function RoomDetailPage() {
       id: room.id,
       title: room.title || "",
       description: room.description || "",
-      rentPricePerMonth: room.rentPricePerMonth || room.pricePerMonth || "",
-      minimumStayMonths: room.minimumStayMonths || room.minStayMonths || 1,
+      rentPricePerMonth: room.rentPricePerMonth || "",
+      minimumStayMonths: room.minimumStayMonths || 1,
       address: room.address || "",
       latitude: room.latitude || "",
       longitude: room.longitude || "",
@@ -79,12 +107,10 @@ function RoomDetailPage() {
       numberOfBedRooms: room.numberOfBedRooms || 1,
       hasWindow: typeof room.hasWindow === "boolean" ? room.hasWindow : true,
       status: room.status || "PUBLISHED",
-      landlordUserId: room.landlordUserId,
-      district: room.district,
-      distanceKm: room.distanceKm,
-      imgUrl: room.imgUrl || FALLBACK_IMG,
-      landlordName: room.landlordName,
-      landlordAvatar: room.landlordAvatar,
+      landlordId: room.landlordId,
+      thumbnailUrl: room.thumbnailUrl,
+      imageUrls: room.imageUrls || [],
+      videoUrls: room.videoUrls || [],
     });
   }, [room]);
 
@@ -157,375 +183,444 @@ function RoomDetailPage() {
 
   /* ---------- Bookmark handling (tenant) ---------- */
   const handleToggleBookmark = async () => {
+    if (!isTenant) {
+      alert('Only tenants can bookmark rooms');
+      return;
+    }
+
+    setBookmarking(true);
+
     try {
       if (bookmarked) {
         await tenantService.removeBookmark(room.id);
         setBookmarked(false);
+        
+        window.dispatchEvent(new CustomEvent('dashboardActivity', {
+          detail: { type: 'unbookmark', data: { roomId: room.id, roomTitle: room.title } }
+        }));
       } else {
         await tenantService.addBookmark(room.id);
         setBookmarked(true);
+        
+        window.dispatchEvent(new CustomEvent('dashboardActivity', {
+          detail: { type: 'bookmark', data: { roomId: room.id, roomTitle: room.title } }
+        }));
       }
     } catch (err) {
       console.error('Failed to toggle bookmark:', err);
       alert(err.response?.data?.message || 'Failed to update bookmark');
+    } finally {
+      setBookmarking(false);
     }
   };
 
-  if (!formRoom) {
+  // Loading state
+  if (loading) {
     return (
-      <div className="roomDetail-page">
-        <p>Room not found or loading…</p>
-        <button
-          type="button"
-          className="rd-btn rd-btn-secondary"
-          onClick={() => navigate(-1)}
-        >
-          ← Go back
-        </button>
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-white">
+        <div className="text-center">
+          <Loader className="w-12 h-12 text-teal-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Loading room details...</p>
+        </div>
       </div>
     );
   }
 
-  const previewUrl = formRoom.imgUrl || FALLBACK_IMG;
+  // Error state
+  if (error || !formRoom) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-white p-4">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🏠</div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Room Not Found</h3>
+          <p className="text-red-600 mb-4">{error || 'This room does not exist or has been removed'}</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition"
+          >
+            ← Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const displayImage = formRoom.thumbnailUrl || formRoom.imageUrls?.[0] || 
+    'https://placehold.co/1200x600/14B8A6/FFFFFF?text=Room+Image';
 
   return (
-    <div className="roomDetail-page">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-teal-50 to-white">
       {/* Overlay saving */}
       {saving && (
-        <div className="rd-overlay">
-          <div className="rd-overlayCard">
-            <div className="rd-spinner" />
-            <p className="rd-overlayTitle">Saving your changes…</p>
-            <p className="rd-overlaySub">
-              Please wait while we validate data and update your room.
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center">
+            <Loader className="w-12 h-12 text-teal-600 animate-spin mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-900 mb-2">Saving your changes…</p>
+            <p className="text-sm text-gray-600">
+              Please wait while we update your room.
             </p>
           </div>
         </div>
       )}
 
-      {/* Error message */}
-      {error && (
-        <div style={{
-          background: '#fee2e2',
-          border: '1px solid #ef4444',
-          borderRadius: '12px',
-          padding: '12px 16px',
-          marginBottom: '16px',
-          color: '#991b1b'
-        }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {/* Hero section */}
-      <div className="rd-hero">
-        <div className="rd-heroImageWrap">
-          <img src={previewUrl} alt={formRoom.title} className="rd-heroImage" />
-        </div>
-        <div className="rd-heroInfo">
+      {/* Header */}
+      <div className="bg-white shadow-md sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <button
-            type="button"
-            className="rd-backBtn"
             onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
           >
-            ← Back to list
+            <ChevronLeft className="w-5 h-5" />
+            <span className="font-medium">Back</span>
           </button>
-
-          <h1 className="rd-title">{formRoom.title || "Room title"}</h1>
-          <p className="rd-address">{formRoom.address || "Address"}</p>
-
-          <div className="rd-metaRow">
-            <span className="rd-priceTag">
-              {formRoom.rentPricePerMonth
-                ? formatVnd(formRoom.rentPricePerMonth) + " / month"
-                : "Price not set"}
-            </span>
-            <span className="rd-chip">
-              Min stay: {formRoom.minimumStayMonths || 1} months
-            </span>
-            {formRoom.district && (
-              <span className="rd-chip">District: {formRoom.district}</span>
-            )}
-            {formRoom.distanceKm != null && (
-              <span className="rd-chip">
-                ~{formRoom.distanceKm} km away
-              </span>
-            )}
-            {formRoom.status && (
-              <span
-                className={
-                  "rd-status rd-status-" + formRoom.status.toLowerCase()
-                }
-              >
-                {formRoom.status}
-              </span>
-            )}
-          </div>
-
-          {/* Action buttons */}
-          <div className="rd-actions">
-            {isTenant && (
-              <button
-                type="button"
-                className={
-                  "rd-btn " +
-                  (bookmarked ? "rd-btn-outline" : "rd-btn-primary")
-                }
-                onClick={handleToggleBookmark}
-              >
-                {bookmarked ? "Remove bookmark" : "Add to bookmark"}
-              </button>
-            )}
-
-            {isOwnerLandlord && (
-              <button
-                type="button"
-                className="rd-btn rd-btn-primary-room"
-                onClick={() => setIsEditing((v) => !v)}
-              >
-                {isEditing ? "Cancel edit" : "Edit room details"}
-              </button>
-            )}
-          </div>
-
-          {saveMessage && (
-            <p className="rd-saveMessage rd-saveMessage-success">
-              {saveMessage}
-            </p>
-          )}
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="rd-grid">
-        {/* LEFT: view or edit form */}
-        <div className="rd-left">
-          {isOwnerLandlord && isEditing ? (
-            <form className="upload-form" onSubmit={handleSaveEdit}>
-              <section className="upload-section">
-                <h3 className="upload-sectionTitle">Basic details</h3>
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Error message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+            <p className="text-red-800"><strong>Error:</strong> {error}</p>
+          </div>
+        )}
 
-                <div className="upload-field">
-                  <label>Title *</label>
-                  <input
-                    type="text"
-                    value={formRoom.title}
-                    onChange={handleChange("title")}
-                    placeholder="Cozy 2BR Apartment"
-                    required
-                  />
-                </div>
+        {/* Success message */}
+        {saveMessage && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+            <p className="text-green-800"><strong>Success:</strong> {saveMessage}</p>
+          </div>
+        )}
 
-                <div className="upload-field">
-                  <label>Address *</label>
-                  <input
-                    type="text"
-                    value={formRoom.address}
-                    onChange={handleChange("address")}
-                    placeholder="123 Main Street"
-                    required
-                  />
-                </div>
+        {/* Hero Image */}
+        <div className="relative h-96 rounded-2xl overflow-hidden mb-6 shadow-lg">
+          <img
+            src={displayImage}
+            alt={formRoom.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.src = 'https://placehold.co/1200x600/14B8A6/FFFFFF?text=Room+Image';
+            }}
+          />
+          
+          {/* Bookmark Button (Tenant Only) */}
+          {isTenant && (
+            <button
+              onClick={handleToggleBookmark}
+              disabled={bookmarking}
+              className={`absolute top-4 right-4 p-3 rounded-full shadow-lg transition ${
+                bookmarked
+                  ? 'bg-teal-500 text-white'
+                  : 'bg-white text-gray-600 hover:bg-teal-50'
+              } ${bookmarking ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {bookmarking ? (
+                <Loader className="w-6 h-6 animate-spin" />
+              ) : (
+                <Bookmark className="w-6 h-6" fill={bookmarked ? 'currentColor' : 'none'} />
+              )}
+            </button>
+          )}
 
-                <div className="upload-field">
-                  <label>Description</label>
-                  <textarea
-                    rows={3}
-                    value={formRoom.description}
-                    onChange={handleChange("description")}
-                    placeholder="Short description..."
-                  />
-                </div>
-              </section>
-
-              <section className="upload-section">
-                <h3 className="upload-sectionTitle">Pricing & stay</h3>
-
-                <div className="upload-row">
-                  <div className="upload-field">
-                    <label>Rent / month (VND) *</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formRoom.rentPricePerMonth}
-                      onChange={handleChange("rentPricePerMonth")}
-                      placeholder="5000000"
-                      required
-                    />
-                  </div>
-
-                  <div className="upload-field">
-                    <label>Minimum stay (months) *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formRoom.minimumStayMonths}
-                      onChange={handleChange("minimumStayMonths")}
-                      placeholder="6"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="upload-row">
-                  <div className="upload-field">
-                    <label>Status *</label>
-                    <select
-                      value={formRoom.status}
-                      onChange={handleSelect("status")}
-                      required
-                    >
-                      <option value="DRAFT">Draft</option>
-                      <option value="PUBLISHED">Published</option>
-                      <option value="HIDDEN">Hidden</option>
-                    </select>
-                  </div>
-
-                  <div className="upload-field upload-checkboxField">
-                    <label>Has window</label>
-                    <label className="switch">
-                      <input
-                        type="checkbox"
-                        checked={formRoom.hasWindow}
-                        onChange={handleCheckbox("hasWindow")}
-                      />
-                      <span className="slider" />
-                    </label>
-                  </div>
-                </div>
-              </section>
-
-              <section className="upload-section">
-                <h3 className="upload-sectionTitle">Layout & location</h3>
-
-                <div className="upload-row">
-                  <div className="upload-field">
-                    <label>Bedrooms *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formRoom.numberOfBedRooms}
-                      onChange={handleChange("numberOfBedRooms")}
-                      required
-                    />
-                  </div>
-
-                  <div className="upload-field">
-                    <label>Toilets *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formRoom.numberOfToilets}
-                      onChange={handleChange("numberOfToilets")}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="upload-row">
-                  <div className="upload-field">
-                    <label>Latitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={formRoom.latitude}
-                      onChange={handleChange("latitude")}
-                      placeholder="10.7769"
-                    />
-                  </div>
-
-                  <div className="upload-field">
-                    <label>Longitude</label>
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={formRoom.longitude}
-                      onChange={handleChange("longitude")}
-                      placeholder="106.7009"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              <button type="submit" className="upload-submit">
-                Save changes
-              </button>
-            </form>
-          ) : (
-            <div className="rd-readonly">
-              <section className="rd-section">
-                <h3 className="rd-sectionTitle">About this room</h3>
-                <p className="rd-sectionText">
-                  {formRoom.description ||
-                    "No description provided by landlord yet."}
-                </p>
-              </section>
-
-              <section className="rd-section">
-                <h3 className="rd-sectionTitle">Key details</h3>
-                <div className="rd-detailGrid">
-                  <div className="rd-detailItem">
-                    <span className="rd-detailLabel">Monthly rent</span>
-                    <span className="rd-detailValue">
-                      {formRoom.rentPricePerMonth
-                        ? formatVnd(formRoom.rentPricePerMonth)
-                        : "Not set"}
-                    </span>
-                  </div>
-                  <div className="rd-detailItem">
-                    <span className="rd-detailLabel">Minimum stay</span>
-                    <span className="rd-detailValue">
-                      {formRoom.minimumStayMonths || 1} months
-                    </span>
-                  </div>
-                  <div className="rd-detailItem">
-                    <span className="rd-detailLabel">Bedrooms</span>
-                    <span className="rd-detailValue">
-                      {formRoom.numberOfBedRooms || 1}
-                    </span>
-                  </div>
-                  <div className="rd-detailItem">
-                    <span className="rd-detailLabel">Toilets</span>
-                    <span className="rd-detailValue">
-                      {formRoom.numberOfToilets || 1}
-                    </span>
-                  </div>
-                  <div className="rd-detailItem">
-                    <span className="rd-detailLabel">Has window</span>
-                    <span className="rd-detailValue">
-                      {formRoom.hasWindow ? "Yes" : "No"}
-                    </span>
-                  </div>
-                  {formRoom.latitude && formRoom.longitude && (
-                    <div className="rd-detailItem">
-                      <span className="rd-detailLabel">Coordinates</span>
-                      <span className="rd-detailValue">
-                        {formRoom.latitude}, {formRoom.longitude}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </section>
+          {/* Status Badge */}
+          {formRoom.status && (
+            <div className={`absolute top-4 left-4 px-4 py-2 rounded-full font-semibold text-sm shadow-lg ${
+              formRoom.status === 'PUBLISHED'
+                ? 'bg-green-500 text-white'
+                : formRoom.status === 'RENTED'
+                ? 'bg-red-500 text-white'
+                : 'bg-gray-500 text-white'
+            }`}>
+              {formRoom.status}
             </div>
           )}
         </div>
 
-        {/* RIGHT: landlord info */}
-        <div className="rd-right">
-          <section className="rd-landlordCard">
-            <h3 className="rd-sectionTitle">Landlord</h3>
-            <div className="rd-landlordInfo">
-              <div className="rd-landlordAvatar">
-                {formRoom.landlordAvatar || "🧑🏻‍💼"}
-              </div>
-              <div>
-                <p className="rd-landlordName">
-                  {formRoom.landlordName || "Landlord name"}
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left: Room Details */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Title & Price */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {formRoom.title || "Room Title"}
+              </h1>
+              
+              {formRoom.address && (
+                <p className="text-gray-600 flex items-center gap-2 mb-4">
+                  <MapPin className="w-5 h-5 text-teal-500" />
+                  {formRoom.address}
                 </p>
-                <p className="rd-landlordRole">Verified landlord</p>
+              )}
+
+              <div className="flex items-baseline gap-2 mb-6">
+                <span className="text-4xl font-bold text-teal-600">
+                  {formRoom.rentPricePerMonth?.toLocaleString('vi-VN')}
+                </span>
+                <span className="text-4xl font-bold text-teal-600">₫</span>
+                <span className="text-xl text-gray-500">/month</span>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center gap-2 p-3 bg-teal-50 rounded-lg">
+                  <Bed className="w-5 h-5 text-teal-600" />
+                  <div>
+                    <p className="text-xs text-gray-600">Bedrooms</p>
+                    <p className="font-semibold text-gray-900">{formRoom.numberOfBedRooms}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+                  <Bath className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <p className="text-xs text-gray-600">Bathrooms</p>
+                    <p className="font-semibold text-gray-900">{formRoom.numberOfToilets}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
+                  <Calendar className="w-5 h-5 text-purple-600" />
+                  <div>
+                    <p className="text-xs text-gray-600">Min. Stay</p>
+                    <p className="font-semibold text-gray-900">{formRoom.minimumStayMonths}mo</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
+                  {formRoom.hasWindow ? (
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-gray-400" />
+                  )}
+                  <div>
+                    <p className="text-xs text-gray-600">Window</p>
+                    <p className="font-semibold text-gray-900">
+                      {formRoom.hasWindow ? 'Yes' : 'No'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              {isOwnerLandlord && (
+                <div className="mt-6">
+                  <button
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="w-full bg-teal-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-teal-700 transition"
+                  >
+                    {isEditing ? 'Cancel Editing' : 'Edit Room Details'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            {!isEditing && (
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">About This Room</h2>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                  {formRoom.description || "No description provided."}
+                </p>
+              </div>
+            )}
+
+            {/* Edit Form (Owner Only) */}
+            {isOwnerLandlord && isEditing && (
+              <form onSubmit={handleSaveEdit} className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
+                <h2 className="text-xl font-bold text-gray-900">Edit Room Details</h2>
+
+                {/* Basic Info */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={formRoom.title}
+                      onChange={handleChange("title")}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={formRoom.description}
+                      onChange={handleChange("description")}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Address *
+                    </label>
+                    <input
+                      type="text"
+                      value={formRoom.address}
+                      onChange={handleChange("address")}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Monthly Rent (₫) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formRoom.rentPricePerMonth}
+                        onChange={handleChange("rentPricePerMonth")}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Min. Stay (months) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formRoom.minimumStayMonths}
+                        onChange={handleChange("minimumStayMonths")}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bedrooms *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formRoom.numberOfBedRooms}
+                        onChange={handleChange("numberOfBedRooms")}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bathrooms *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formRoom.numberOfToilets}
+                        onChange={handleChange("numberOfToilets")}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Status
+                      </label>
+                      <select
+                        value={formRoom.status}
+                        onChange={handleSelect("status")}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      >
+                        <option value="DRAFT">Draft</option>
+                        <option value="PUBLISHED">Published</option>
+                        <option value="HIDDEN">Hidden</option>
+                        <option value="RENTED">Rented</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-6">
+                      <input
+                        type="checkbox"
+                        id="hasWindow"
+                        checked={formRoom.hasWindow}
+                        onChange={handleCheckbox("hasWindow")}
+                        className="w-5 h-5 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                      />
+                      <label htmlFor="hasWindow" className="text-sm font-medium text-gray-700">
+                        Has Window
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-teal-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-teal-700 transition"
+                >
+                  Save Changes
+                </button>
+              </form>
+            )}
+          </div>
+
+          {/* Right: Landlord Info & Media */}
+          <div className="space-y-6">
+            {/* Landlord Card */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Landlord</h3>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center text-2xl">
+                  🧑🏻‍💼
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">Property Owner</p>
+                  <p className="text-sm text-teal-600">Verified landlord</p>
+                </div>
               </div>
             </div>
-          </section>
+
+            {/* Media Gallery */}
+            {(formRoom.imageUrls?.length > 0 || formRoom.videoUrls?.length > 0) && (
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Media</h3>
+                
+                {formRoom.imageUrls?.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-2">
+                      📷 {formRoom.imageUrls.length} photo{formRoom.imageUrls.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                )}
+
+                {formRoom.videoUrls?.length > 0 && (
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      🎥 {formRoom.videoUrls.length} video tour{formRoom.videoUrls.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Location */}
+            {(formRoom.latitude && formRoom.longitude) && (
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Location</h3>
+                <p className="text-sm text-gray-600">
+                  <strong>Coordinates:</strong><br />
+                  {formRoom.latitude}, {formRoom.longitude}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

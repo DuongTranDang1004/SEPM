@@ -2,10 +2,12 @@
 import api from './api';
 
 const roomService = {
-  // Get all rooms
+  // Get all rooms - unwrap the RoomListResponse
   getAllRooms: async () => {
     const response = await api.get('/user/rooms');
-    return response.data;
+    // Backend returns { rooms: [...], totalCount: 50, message: "..." }
+    // Extract just the rooms array
+    return response.data.rooms || [];
   },
 
   // Get room by ID
@@ -14,12 +16,12 @@ const roomService = {
     return response.data;
   },
 
-  // Search/filter rooms
+  // Search/filter rooms (if you add backend filtering later)
   searchRooms: async (filters) => {
     const response = await api.get('/user/rooms', {
       params: filters
     });
-    return response.data;
+    return response.data.rooms || [];
   }
 };
 

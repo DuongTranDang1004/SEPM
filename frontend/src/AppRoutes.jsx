@@ -5,30 +5,21 @@ import SignupPage from './pages/auth/SignupPage';
 import DashboardLayout from './components/layout/DashboardLayout';
 import TenantDashboard from './pages/tenant/TenantDashboard';
 import LandlordDashboard from './pages/landlord/LandlordDashboard';
-import UploadRoomPage from './pages/landlord/UploadRoomPage'; // ✅ NOW REAL
+import UploadRoomPage from './pages/landlord/UploadRoomPage';
 import MessagePage from './pages/shared/MessagesPage';
 import AccountPage from './pages/shared/AccountPage';
 import RoomDetailPage from './pages/shared/RoomDetailPage';
+import FindRoomsPage from './pages/shared/FindRoomsPage'; // ✅ NOW SHARED
 import MatchPage from './pages/tenant/MatchPage';
-import FindRoomsPage from './pages/tenant/FindRoomsPage';
 import FindRoommatesPage from './pages/tenant/FindRoommatesPage';
 import BookmarksPage from './pages/tenant/BookmarksPage';
 
-// Placeholder components for future development
+// Placeholder component for My Rooms
 const MyRoomsPage = () => (
-  <div className="h-full flex items-center justify-center p-8">
+  <div className="h-full flex items-center justify-center p-8 bg-gradient-to-br from-blue-50 to-white">
     <div className="text-center">
       <h2 className="text-3xl font-bold text-gray-900 mb-4">🏘️ My Rooms</h2>
       <p className="text-gray-600">Manage your published listings (Coming Soon)</p>
-    </div>
-  </div>
-);
-
-const BrowseRoomsPage = () => (
-  <div className="h-full flex items-center justify-center p-8">
-    <div className="text-center">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">🔍 Browse Rooms</h2>
-      <p className="text-gray-600">View rooms from other landlords (Coming Soon)</p>
     </div>
   </div>
 );
@@ -47,7 +38,7 @@ function AppRoutes() {
         
         {/* ===== TENANT ROUTES ===== */}
         <Route path="tenant" element={<TenantDashboard />} />
-        <Route path="tenant/find-rooms" element={<FindRoomsPage />} />
+        <Route path="tenant/find-rooms" element={<FindRoomsPage />} /> {/* ✅ SHARED */}
         <Route path="tenant/find-roommates" element={<FindRoommatesPage />} />
         <Route path="tenant/bookmarks" element={<BookmarksPage />} />
         <Route path="tenant/match" element={<MatchPage />} />
@@ -56,11 +47,11 @@ function AppRoutes() {
         
         {/* ===== LANDLORD ROUTES ===== */}
         <Route path="landlord" element={<LandlordDashboard />} />
-        <Route path="landlord/upload-room" element={<UploadRoomPage />} /> {/* ✅ NOW REAL */}
+        <Route path="landlord/upload-room" element={<UploadRoomPage />} />
         <Route path="landlord/my-rooms" element={<MyRoomsPage />} />
-        <Route path="landlord/browse-rooms" element={<BrowseRoomsPage />} />
+        <Route path="landlord/browse-rooms" element={<FindRoomsPage />} /> {/* ✅ SHARED */}
         <Route path="landlord/room/:roomId" element={<RoomDetailPage />} />
-        <Route path="landlord/edit-room/:roomId" element={<UploadRoomPage />} /> {/* ✅ Reuse upload page for editing */}
+        <Route path="landlord/edit-room/:roomId" element={<UploadRoomPage />} />
         <Route path="landlord/account" element={<AccountPage />} />
         
         {/* ===== SHARED ROUTES ===== */}
@@ -68,9 +59,8 @@ function AppRoutes() {
       </Route>
       
       {/* ===== STANDALONE ROUTES (outside dashboard layout) ===== */}
-      {/* These routes from your teammate's file - preserved for compatibility */}
-      <Route path="/rooms/:roomId" element={<RoomDetailPage />} /> {/* ✅ Direct room access */}
-      <Route path="/landlord/:landlordId" element={<LandlordDashboard />} /> {/* ✅ Public landlord view */}
+      <Route path="/rooms/:roomId" element={<RoomDetailPage />} />
+      <Route path="/landlord/:landlordId" element={<LandlordDashboard />} />
       
       {/* Default & catch-all routes */}
       <Route path="/" element={<Navigate to="/login" replace />} />
