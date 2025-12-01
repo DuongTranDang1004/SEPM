@@ -13,16 +13,7 @@ import FindRoomsPage from './pages/shared/FindRoomsPage'; // ✅ NOW SHARED
 import MatchPage from './pages/tenant/MatchPage';
 import FindRoommatesPage from './pages/tenant/FindRoommatesPage';
 import BookmarksPage from './pages/tenant/BookmarksPage';
-
-// Placeholder component for My Rooms
-const MyRoomsPage = () => (
-  <div className="h-full flex items-center justify-center p-8 bg-gradient-to-br from-blue-50 to-white">
-    <div className="text-center">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">🏘️ My Rooms</h2>
-      <p className="text-gray-600">Manage your published listings (Coming Soon)</p>
-    </div>
-  </div>
-);
+import MyRoomsPage from './pages/landlord/MyRoomsPage';
 
 function AppRoutes() {
   return (

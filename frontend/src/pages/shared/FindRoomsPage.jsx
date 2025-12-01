@@ -17,7 +17,7 @@ function FindRoomsPage() {
   
   // Get current user from localStorage
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-  const isTenant = currentUser.role === 'tenant';
+  const isTenant = currentUser.role?.toUpperCase() === 'TENANT'; // ✅ CORRECT
 
   // Data state
   const [rooms, setRooms] = useState([]);
@@ -53,28 +53,30 @@ function FindRoomsPage() {
     setError('');
 
     try {
-      const data = await roomService.getAllRooms();
-      console.log('Fetched rooms:', data);
-      
-      // Filter only PUBLISHED rooms on frontend (or backend should do this)
-      const publishedRooms = data.filter(room => 
-        room.status === 'PUBLISHED' || room.status === 'AVAILABLE'
-      );
-      
-      setRooms(publishedRooms);
+        const data = await roomService.getAllRooms();
+        console.log('✅ Fetched rooms:', data);
+        
+        // ✅ Filter only PUBLISHED rooms (AVAILABLE doesn't exist in backend)
+        const publishedRooms = data.filter(room => 
+            room.status === 'PUBLISHED'
+        );
+        
+        console.log('📊 Published rooms:', publishedRooms.length);
+        
+        setRooms(publishedRooms);
     } catch (err) {
-      console.error('Error fetching rooms:', err);
-      
-      if (err.response?.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
-        return;
-      }
-      
-      setError('Failed to load rooms. Please try again.');
+        console.error('❌ Error fetching rooms:', err);
+        
+        if (err.response?.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login');
+            return;
+        }
+        
+        setError('Failed to load rooms. Please try again.');
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 
@@ -82,14 +84,15 @@ function FindRoomsPage() {
   const fetchBookmarks = async () => {
     try {
       const bookmarksData = await tenantService.getBookmarks();
-      console.log('Fetched bookmarks:', bookmarksData);
+      console.log('✅ Fetched bookmarks:', bookmarksData);
       
       const bookmarkedRoomIds = new Set(
         (bookmarksData || []).map(b => b.room?.id || b.roomId).filter(Boolean)
       );
+        console.log('📌 Bookmarked room IDs:', Array.from(bookmarkedRoomIds));
       setBookmarks(bookmarkedRoomIds);
     } catch (err) {
-      console.error('Error fetching bookmarks:', err);
+      console.error('❌ Error fetching bookmarks:', err);
       // Don't show error - bookmarks aren't critical
     }
   };
@@ -141,7 +144,7 @@ function FindRoomsPage() {
         }));
       }
     } catch (err) {
-      console.error('Error toggling bookmark:', err);
+      console.error('❌ Error toggling bookmark:', err);
       alert(err.response?.data?.message || 'Failed to update bookmark');
     } finally {
       setBookmarkingIds(prev => {
@@ -152,6 +155,7 @@ function FindRoomsPage() {
     }
   };
 
+  // ✅ FIX: Navigation based on actual role
   const handleViewRoom = (roomId) => {
     const basePath = isTenant ? '/dashboard/tenant' : '/dashboard/landlord';
     navigate(`${basePath}/room/${roomId}`);

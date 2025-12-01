@@ -141,7 +141,7 @@ public class LandlordRepository {
     public List<Room> findRoomsByLandlordUserId(String landlordUserId) {
         try {
             List<QueryDocumentSnapshot> documents = firestore.collection(ROOMS_COLLECTION)
-                    .whereEqualTo("landlordUserId", landlordUserId)
+                    .whereEqualTo("landlordId", landlordUserId)
                     .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                     .get()
                     .get()
