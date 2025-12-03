@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -50,16 +51,16 @@ public class AllAuthUserService {
 
                 // ✅ UPDATED: Enrich conversations with participant data
                 List<ConversationDetailResponse> conversationResponses = conversations.stream()
-                                .map(conversation -> enrichConversation(conversation, userId))
-                                .collect(Collectors.toList());
+                        .map(conversation -> enrichConversation(conversation, userId))
+                        .collect(Collectors.toList());
 
                 log.info("Found {} conversations for user: {}", conversationResponses.size(), userId);
 
                 return ConversationListResponse.builder()
-                                .conversations(conversationResponses)
-                                .totalCount(conversationResponses.size())
-                                .message("Conversations retrieved successfully")
-                                .build();
+                        .conversations(conversationResponses)
+                        .totalCount(conversationResponses.size())
+                        .message("Conversations retrieved successfully")
+                        .build();
         }
 
         /**
@@ -68,17 +69,17 @@ public class AllAuthUserService {
         private ConversationDetailResponse enrichConversation(Conversation conversation, String currentUserId) {
                 // Find the other participant (not the current user)
                 String otherUserId = conversation.getParticipantIds().stream()
-                                .filter(id -> !id.equals(currentUserId))
-                                .findFirst()
-                                .orElse(null);
+                        .filter(id -> !id.equals(currentUserId))
+                        .findFirst()
+                        .orElse(null);
 
                 if (otherUserId == null) {
                         log.warn("Could not find other participant in conversation: {}", conversation.getId());
                         return ConversationDetailResponse.fromConversation(
-                                        conversation,
-                                        currentUserId,
-                                        "Unknown User",
-                                        null);
+                                conversation,
+                                currentUserId,
+                                "Unknown User",
+                                null);
                 }
 
                 // Fetch the other user's account
@@ -87,18 +88,18 @@ public class AllAuthUserService {
                 if (otherUser == null) {
                         log.warn("Other participant not found for ID: {}", otherUserId);
                         return ConversationDetailResponse.fromConversation(
-                                        conversation,
-                                        currentUserId,
-                                        "Deleted User",
-                                        null);
+                                conversation,
+                                currentUserId,
+                                "Deleted User",
+                                null);
                 }
 
                 // Return conversation with enriched data
                 return ConversationDetailResponse.fromConversation(
-                                conversation,
-                                currentUserId,
-                                otherUser.getName(),
-                                otherUser.getAvatarUrl());
+                        conversation,
+                        currentUserId,
+                        otherUser.getName(),
+                        otherUser.getAvatarUrl());
         }
 
         // ========================================
@@ -110,16 +111,16 @@ public class AllAuthUserService {
                 List<Room> rooms = repository.findAllPublishedRooms();
 
                 List<RoomDetailResponse> roomResponses = rooms.stream()
-                                .map(RoomDetailResponse::fromRoom)
-                                .collect(Collectors.toList());
+                        .map(RoomDetailResponse::fromRoom)
+                        .collect(Collectors.toList());
 
                 log.info("Found {} rooms", roomResponses.size());
 
                 return RoomListResponse.builder()
-                                .rooms(roomResponses)
-                                .totalCount(roomResponses.size())
-                                .message("Rooms retrieved successfully")
-                                .build();
+                        .rooms(roomResponses)
+                        .totalCount(roomResponses.size())
+                        .message("Rooms retrieved successfully")
+                        .build();
         }
 
         // ========================================
@@ -129,9 +130,9 @@ public class AllAuthUserService {
                 log.info("Getting room detail for ID: {}", roomId);
 
                 Room room = repository.findRoomById(roomId)
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND,
-                                                "Room not found with ID: " + roomId));
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Room not found with ID: " + roomId));
 
                 return RoomDetailResponse.fromRoom(room);
         }
@@ -143,14 +144,14 @@ public class AllAuthUserService {
                 log.info("Changing password for user: {}", userId);
 
                 Account account = repository.findAccountById(userId)
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND,
-                                                "User not found with ID: " + userId));
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "User not found with ID: " + userId));
 
                 if (!passwordEncoder.matches(request.getCurrentPassword(), account.getPassword())) {
                         throw new ResponseStatusException(
-                                        HttpStatus.BAD_REQUEST,
-                                        "Current password is incorrect");
+                                HttpStatus.BAD_REQUEST,
+                                "Current password is incorrect");
                 }
 
                 String hashedNewPassword = passwordEncoder.encode(request.getNewPassword());
@@ -162,18 +163,18 @@ public class AllAuthUserService {
                 log.info("Password changed successfully for user: {}", userId);
 
                 return HTTPMessageResponse.builder()
-                                .message("Password changed successfully")
-                                .build();
+                        .message("Password changed successfully")
+                        .build();
         }
 
         // ========================================
         // 5. SEND MESSAGE WITH MEDIA
         // ========================================
         public MessageDetailResponse sendMessage(
-                        String userId,
-                        String conversationId,
-                        SendMessageRequest request,
-                        MultipartFile media) throws IOException {
+                String userId,
+                String conversationId,
+                SendMessageRequest request,
+                MultipartFile media) throws IOException {
 
                 log.info("Sending message in conversation: {} from user: {}", conversationId, userId);
 
@@ -181,15 +182,15 @@ public class AllAuthUserService {
 
                 try {
                         Conversation conversation = repository.findConversationById(conversationId)
-                                        .orElseThrow(() -> new ResponseStatusException(
-                                                        HttpStatus.NOT_FOUND,
-                                                        "Conversation not found with ID: " + conversationId));
+                                .orElseThrow(() -> new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Conversation not found with ID: " + conversationId));
 
                         if (!conversation.getParticipantIds().contains(userId)) {
                                 // ✅ FIXED: Use ResponseStatusException
                                 throw new ResponseStatusException(
-                                                HttpStatus.FORBIDDEN,
-                                                "You are not a participant in this conversation");
+                                        HttpStatus.FORBIDDEN,
+                                        "You are not a participant in this conversation");
                         }
 
                         if (media != null && !media.isEmpty()) {
@@ -199,19 +200,19 @@ public class AllAuthUserService {
                         }
 
                         List<String> mediaUrls = uploadedMediaUrl != null
-                                        ? List.of(uploadedMediaUrl)
-                                        : List.of();
+                                ? List.of(uploadedMediaUrl)
+                                : List.of();
 
                         Message message = Message.builder()
-                                        .id(UUID.randomUUID().toString())
-                                        .conversationId(conversationId)
-                                        .senderId(userId)
-                                        .content(request.getContent())
-                                        .mediaUrls(mediaUrls)
-                                        .readBy(List.of(userId))
-                                        .createdAt(Timestamp.now())
-                                        .updatedAt(Timestamp.now())
-                                        .build();
+                                .id(UUID.randomUUID().toString())
+                                .conversationId(conversationId)
+                                .senderId(userId)
+                                .content(request.getContent())
+                                .mediaUrls(mediaUrls)
+                                .readBy(List.of(userId))
+                                .createdAt(Timestamp.now())
+                                .updatedAt(Timestamp.now())
+                                .build();
 
                         repository.saveMessage(message);
 
@@ -223,23 +224,23 @@ public class AllAuthUserService {
                         log.info("Message sent successfully in conversation: {}", conversationId);
                         // ✅ NEW: Send WebSocket notification to the other participant
                         String otherUserId = conversation.getParticipantIds().stream()
-                                        .filter(id -> !id.equals(userId))
-                                        .findFirst()
-                                        .orElse(null);
+                                .filter(id -> !id.equals(userId))
+                                .findFirst()
+                                .orElse(null);
 
                         if (otherUserId != null) {
                                 // Get sender info
                                 Account sender = repository.findAccountById(userId).orElse(null);
 
                                 NewMessageNotification notification = NewMessageNotification.builder()
-                                                .messageId(message.getId())
-                                                .conversationId(conversationId)
-                                                .senderId(userId)
-                                                .senderName(sender != null ? sender.getName() : "Unknown User")
-                                                .senderAvatar(sender != null ? sender.getAvatarUrl() : null)
-                                                .content(request.getContent())
-                                                .mediaUrls(mediaUrls)
-                                                .build();
+                                        .messageId(message.getId())
+                                        .conversationId(conversationId)
+                                        .senderId(userId)
+                                        .senderName(sender != null ? sender.getName() : "Unknown User")
+                                        .senderAvatar(sender != null ? sender.getAvatarUrl() : null)
+                                        .content(request.getContent())
+                                        .mediaUrls(mediaUrls)
+                                        .build();
 
                                 webSocketService.sendNewMessageNotification(otherUserId, notification);
                         }
@@ -258,8 +259,8 @@ public class AllAuthUserService {
                                 throw e;
                         }
                         throw new ResponseStatusException(
-                                        HttpStatus.INTERNAL_SERVER_ERROR,
-                                        "Failed to send message: " + e.getMessage());
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                "Failed to send message: " + e.getMessage());
                 }
         }
 
@@ -286,9 +287,9 @@ public class AllAuthUserService {
                 log.info("Deactivating profile for user: {}", userId);
 
                 Account account = repository.findAccountById(userId)
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND,
-                                                "User not found with ID: " + userId));
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "User not found with ID: " + userId));
 
                 account.setActive(false);
                 account.setUpdatedAt(Timestamp.now());
@@ -298,8 +299,8 @@ public class AllAuthUserService {
                 log.info("Profile deactivated for user: {}", userId);
 
                 return HTTPMessageResponse.builder()
-                                .message("Profile deactivated successfully")
-                                .build();
+                        .message("Profile deactivated successfully")
+                        .build();
         }
 
         // ========================================
@@ -309,9 +310,9 @@ public class AllAuthUserService {
                 log.info("Activating profile for user: {}", userId);
 
                 Account account = repository.findAccountById(userId)
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND,
-                                                "User not found with ID: " + userId));
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "User not found with ID: " + userId));
 
                 account.setActive(true);
                 account.setUpdatedAt(Timestamp.now());
@@ -321,60 +322,73 @@ public class AllAuthUserService {
                 log.info("Profile activated for user: {}", userId);
 
                 return HTTPMessageResponse.builder()
-                                .message("Profile activated successfully")
-                                .build();
+                        .message("Profile activated successfully")
+                        .build();
         }
 
         // ========================================
-        // 1.5. GET CONVERSATION DETAIL WITH MESSAGES
-        // ========================================
+// 1.5. GET CONVERSATION DETAIL WITH MESSAGES
+// ========================================
         public ConversationDetailResponse getConversationDetail(String conversationId, String userId) {
                 log.info("Getting conversation detail for ID: {} by user: {}", conversationId, userId);
 
                 // Find conversation
                 Conversation conversation = repository.findConversationById(conversationId)
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND,
-                                                "Conversation not found with ID: " + conversationId));
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Conversation not found with ID: " + conversationId));
 
-                // ✅ FIXED: Use ResponseStatusException instead of AccessDeniedException
                 if (!conversation.getParticipantIds().contains(userId)) {
                         throw new ResponseStatusException(
-                                        HttpStatus.FORBIDDEN,
-                                        "You are not a participant in this conversation");
+                                HttpStatus.FORBIDDEN,
+                                "You are not a participant in this conversation");
                 }
 
                 // Get all messages in conversation
                 List<Message> messages = repository.findMessagesByConversationId(conversationId);
 
+                // ✅ Enrich each message with sender info
                 List<MessageDetailResponse> messageResponses = messages.stream()
-                                .map(MessageDetailResponse::fromMessage)
-                                .collect(Collectors.toList());
+                        .map(message -> {
+                                Account sender = repository.findAccountById(message.getSenderId()).orElse(null);
 
-                // Find the other participant
-                String otherUserId = conversation.getParticipantIds().stream()
-                                .filter(id -> !id.equals(userId))
-                                .findFirst()
-                                .orElse(null);
+                                String senderName = sender != null ? sender.getName() : "Unknown User";
+                                String senderAvatar = sender != null ? sender.getAvatarUrl() : null;
 
-                String otherParticipantName = "Unknown User";
-                String otherParticipantAvatar = null;
+                                return MessageDetailResponse.fromMessageWithSender(
+                                        message,
+                                        senderName,
+                                        senderAvatar
+                                );
+                        })
+                        .collect(Collectors.toList());
 
-                if (otherUserId != null) {
-                        Account otherUser = repository.findAccountById(otherUserId).orElse(null);
-                        if (otherUser != null) {
-                                otherParticipantName = otherUser.getName();
-                                otherParticipantAvatar = otherUser.getAvatarUrl();
+                // ✅ Build allParticipants list
+                List<ConversationDetailResponse.ParticipantInfo> allParticipants = new ArrayList<>();
+
+                for (String participantId : conversation.getParticipantIds()) {
+                        Account participant = repository.findAccountById(participantId).orElse(null);
+
+                        if (participant != null) {
+                                ConversationDetailResponse.ParticipantInfo participantInfo =
+                                        ConversationDetailResponse.ParticipantInfo.builder()
+                                                .userId(participantId)
+                                                .name(participant.getName())
+                                                .avatarUrl(participant.getAvatarUrl())
+                                                .role(participant.getRole().toString()) // "TENANT" or "LANDLORD"
+                                                .build();
+
+                                allParticipants.add(participantInfo);
                         }
                 }
 
-                // ✅ Use the new method with messages
+                // Build response with all participants
                 ConversationDetailResponse response = ConversationDetailResponse.fromConversationWithMessages(
-                                conversation,
-                                userId,
-                                otherParticipantName,
-                                otherParticipantAvatar,
-                                messageResponses);
+                        conversation,
+                        userId,
+                        messageResponses,
+                        allParticipants // ✅ PASS THE LIST
+                );
 
                 log.info("Found {} messages in conversation: {}", messageResponses.size(), conversationId);
 

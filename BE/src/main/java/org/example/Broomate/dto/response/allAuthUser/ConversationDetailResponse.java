@@ -22,13 +22,13 @@ public class ConversationDetailResponse {
     @Schema(description = "Participant IDs", example = "[\"user1\", \"user2\"]")
     private List<String> participantIds;
 
-    @Schema(description = "Other participant's user ID", example = "user456")
+    @Schema(description = "Other participant's user ID (only for 2-way conversations)", example = "user456")
     private String otherParticipantId;
 
-    @Schema(description = "Other participant's name", example = "Jane Doe")
+    @Schema(description = "Other participant's name (only for 2-way conversations)", example = "Jane Doe")
     private String otherParticipantName;
 
-    @Schema(description = "Other participant's avatar URL", example = "https://example.com/avatar.jpg")
+    @Schema(description = "Other participant's avatar URL (only for 2-way conversations)", example = "https://example.com/avatar.jpg")
     private String otherParticipantAvatar;
 
     @Schema(description = "Last message content", example = "Hello, is this room still available?")
@@ -40,7 +40,6 @@ public class ConversationDetailResponse {
     @Schema(description = "Unread message count", example = "3")
     private Integer unreadCount;
 
-    // ✅ NEW: Messages list (optional - only populated when fetching conversation detail)
     @Schema(description = "List of messages in this conversation")
     private List<MessageDetailResponse> messages;
 
@@ -53,14 +52,31 @@ public class ConversationDetailResponse {
     @Schema(description = "Updated timestamp", example = "2025-10-24T12:30:00Z")
     private String updatedAt;
 
-    // ✅ Original method - for conversation list (without messages)
+    // ✅ For 3-way conversations
+    @Schema(description = "All participants in this conversation (for 3+ way conversations)")
+    private List<ParticipantInfo> allParticipants;
+
+    @Schema(description = "Conversation type", example = "TWO_WAY or THREE_WAY")
+    private String conversationType;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ParticipantInfo {
+        private String userId;
+        private String name;
+        private String avatarUrl;
+        private String role; // "TENANT" or "LANDLORD"
+    }
+
+    // ✅ ORIGINAL: For conversation list (without messages)
     public static ConversationDetailResponse fromConversation(
             Conversation conversation,
             String currentUserId,
             String otherParticipantName,
             String otherParticipantAvatar
     ) {
-        // Find the other participant ID
         String otherParticipantId = conversation.getParticipantIds().stream()
                 .filter(id -> !id.equals(currentUserId))
                 .findFirst()
@@ -75,7 +91,7 @@ public class ConversationDetailResponse {
                 .lastMessage(conversation.getLastMessage())
                 .lastMessageAt(conversation.getLastMessageAt() != null ?
                         conversation.getLastMessageAt().toString() : null)
-                .unreadCount(0) // TODO: Implement unread count logic
+                .unreadCount(0)
                 .createdAt(conversation.getCreatedAt() != null ?
                         conversation.getCreatedAt().toString() : null)
                 .updatedAt(conversation.getUpdatedAt() != null ?
@@ -83,19 +99,34 @@ public class ConversationDetailResponse {
                 .build();
     }
 
-    // ✅ NEW: Overloaded method - for conversation detail (with messages)
+    // ✅ NEW: Updated method for conversation detail (with messages and all participants)
     public static ConversationDetailResponse fromConversationWithMessages(
             Conversation conversation,
             String currentUserId,
-            String otherParticipantName,
-            String otherParticipantAvatar,
-            List<MessageDetailResponse> messages
+            List<MessageDetailResponse> messages,
+            List<ParticipantInfo> allParticipants // ✅ NEW PARAMETER
     ) {
-        // Find the other participant ID
-        String otherParticipantId = conversation.getParticipantIds().stream()
-                .filter(id -> !id.equals(currentUserId))
-                .findFirst()
-                .orElse(null);
+        int participantCount = conversation.getParticipantIds().size();
+        String conversationType = participantCount == 2 ? "TWO_WAY" : "THREE_WAY";
+
+        String otherParticipantId = null;
+        String otherParticipantName = null;
+        String otherParticipantAvatar = null;
+
+        // Only set for 2-way conversations
+        if (participantCount == 2 && allParticipants != null && !allParticipants.isEmpty()) {
+            // Get the other participant (not current user)
+            ParticipantInfo otherParticipant = allParticipants.stream()
+                    .filter(p -> !p.getUserId().equals(currentUserId))
+                    .findFirst()
+                    .orElse(null);
+
+            if (otherParticipant != null) {
+                otherParticipantId = otherParticipant.getUserId();
+                otherParticipantName = otherParticipant.getName();
+                otherParticipantAvatar = otherParticipant.getAvatarUrl();
+            }
+        }
 
         return ConversationDetailResponse.builder()
                 .id(conversation.getId())
@@ -106,9 +137,11 @@ public class ConversationDetailResponse {
                 .lastMessage(conversation.getLastMessage())
                 .lastMessageAt(conversation.getLastMessageAt() != null ?
                         conversation.getLastMessageAt().toString() : null)
-                .unreadCount(0) // TODO: Implement unread count logic
+                .unreadCount(0)
                 .messages(messages)
                 .totalMessages(messages != null ? messages.size() : 0)
+                .allParticipants(allParticipants) // ✅ POPULATED
+                .conversationType(conversationType)
                 .createdAt(conversation.getCreatedAt() != null ?
                         conversation.getCreatedAt().toString() : null)
                 .updatedAt(conversation.getUpdatedAt() != null ?
