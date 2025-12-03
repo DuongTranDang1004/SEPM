@@ -9,11 +9,18 @@ const scoreRouter = require('./score.router.js');
 
 const app = express();
 // Đặt cổng mặc định là 3000 (hoặc đọc từ env)
-const PORT = process.env.PORT || 3000; 
+const PORT = process.env.PORT || 3001; 
 
-// --- GLOBAL MIDDLEWARE ---
-// 1. CORS: Cho phép mọi nguồn gốc truy cập
-app.use(cors());
+// AI/ai.js - Add after line 13
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',  // React dev server
+    'http://localhost:8080'   // Spring Boot (if needed)
+  ],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 
 // 2. Body Parser: Cần thiết cho các request JSON (từ scoreRouter)
 app.use(bodyParser.json());
