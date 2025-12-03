@@ -8,13 +8,19 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
 public class SwaggerConfig {
+
+    // ✅ Optional: Read backend URL from properties
+    @Value("${backend.url:http://localhost:8080}")
+    private String backendUrl;
 
     @Bean
     public OpenAPI customOpenAPI() {
@@ -44,20 +50,24 @@ public class SwaggerConfig {
                         .name("Apache 2.0")
                         .url("https://www.apache.org/licenses/LICENSE-2.0.html"));
 
-        // Define servers
-        Server localServer = new Server()
-                .url("http://localhost:8080")
-                .description("Local Development Server");
+        // ✅ Define servers dynamically
+        List<Server> servers = new ArrayList<>();
 
-        Server prodServer = new Server()
-                .url("https://api.broomate.com")
-                .description("Production Server");
+        servers.add(new Server()
+                .url("http://localhost:8080")
+                .description("Local Development Server"));
+
+       //  ✅ Add your actual backend URL here when deployed
+        // Uncomment and update when you deploy:
+         servers.add(new Server()
+                 .url("https://your-actual-backend-url.com")
+                 .description("Production Server"));
 
         // Build OpenAPI
         return new OpenAPI()
-                .openapi("3.1.0")  // Explicitly set OpenAPI version to 3.1.0
+                .openapi("3.1.0")
                 .info(info)
-                .servers(List.of(localServer, prodServer))
+                .servers(servers)
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth", securityScheme))
                 .addSecurityItem(securityRequirement);

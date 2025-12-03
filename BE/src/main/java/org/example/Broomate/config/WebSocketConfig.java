@@ -39,13 +39,25 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         config.setUserDestinationPrefix("/user");
     }
 
-    @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        log.info("🔧 Registering STOMP endpoints...");
-        registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
-    }
+//    @Override
+//    public void registerStompEndpoints(StompEndpointRegistry registry) {
+//        log.info("🔧 Registering STOMP endpoints...");
+//        registry.addEndpoint("/ws")
+//                .setAllowedOriginPatterns("*")
+//                .withSockJS();
+//    }
+@Override
+public void registerStompEndpoints(StompEndpointRegistry registry) {
+    log.info("🔧 Registering STOMP endpoints...");
+
+    // ✅ UPDATED: Allow specific origins instead of pattern
+    registry.addEndpoint("/ws")
+            .setAllowedOrigins(
+                    "http://localhost:3000", //local domain
+                    "https://d3ljpd6lxo5z2l.cloudfront.net"  // ✅ Add CloudFront domain
+            )
+            .withSockJS();
+}
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {

@@ -19,6 +19,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -68,20 +69,49 @@ public class SecurityConfig {
 
         return http.build();
     }
+//
+//    // ✅ CORS Configuration
+//    @Bean
+//    public CorsConfigurationSource corsConfigurationSource() {
+//        CorsConfiguration configuration = new CorsConfiguration();
+//        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+//        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+//        configuration.setAllowedHeaders(Arrays.asList("*"));
+//        configuration.setAllowCredentials(true);
+//
+//        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+//        source.registerCorsConfiguration("/**", configuration);
+//        return source;
+//    }
+// ✅ UPDATED CORS Configuration
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
 
-    // ✅ CORS Configuration
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
+    // ✅ Allow multiple origins including CloudFront
+    configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:3000",                          // Local development
+            "https://d3ljpd6lxo5z2l.cloudfront.net"          // ✅ Production CloudFront
+    ));
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+    // Allow all standard HTTP methods
+    configuration.setAllowedMethods(Arrays.asList(
+            "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
+    ));
+
+    // Allow all headers
+    configuration.setAllowedHeaders(List.of("*"));
+
+    // Allow credentials (cookies, authorization headers, etc.)
+    configuration.setAllowCredentials(true);
+
+    // Cache preflight requests for 1 hour
+    configuration.setMaxAge(3600L);
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
 
     @Bean
     public PasswordEncoder passwordEncoder() {
