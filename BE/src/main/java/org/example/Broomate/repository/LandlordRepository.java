@@ -11,8 +11,11 @@ import org.example.Broomate.model.Landlord;
 import org.example.Broomate.model.Room;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+
 @RequiredArgsConstructor
 @Slf4j
 @Repository
@@ -31,7 +34,7 @@ public class LandlordRepository {
      */
     public Optional<Landlord> findById(String landlordId) {
         try {
-            DocumentSnapshot document =  firestore
+            DocumentSnapshot document = firestore
                     .collection(LANDLORDS_COLLECTION)
                     .document(landlordId)
                     .get()
@@ -95,7 +98,7 @@ public class LandlordRepository {
     public Optional<Room> findRoomById(String roomId) {
         try {
             Firestore firestore = FirestoreClient.getFirestore();
-            DocumentSnapshot document =  firestore
+            DocumentSnapshot document = firestore
                     .collection(ROOMS_COLLECTION)
                     .document(roomId)
                     .get()
@@ -129,6 +132,30 @@ public class LandlordRepository {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error updating room: {}", roomId, e);
             throw new RuntimeException("Failed to update room", e);
+        }
+    }
+
+    /**
+     * Find all rooms by landlord user ID
+     */
+    public List<Room> findRoomsByLandlordUserId(String landlordUserId) {
+        try {
+            List<QueryDocumentSnapshot> documents = firestore.collection(ROOMS_COLLECTION)
+                    .whereEqualTo("landlordId", landlordUserId)
+                    .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
+                    .get()
+                    .get()
+                    .getDocuments();
+
+            List<Room> rooms = new ArrayList<>();
+            for (QueryDocumentSnapshot document : documents) {
+                rooms.add(document.toObject(Room.class));
+            }
+
+            return rooms;
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error finding rooms for landlord: {}", landlordUserId, e);
+            throw new RuntimeException("Failed to find rooms for landlord", e);
         }
     }
 }

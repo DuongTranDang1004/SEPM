@@ -1,115 +1,116 @@
+// FE/src/components/messaging/ConversationList.jsx
+
 import React from 'react';
 import { Search } from 'lucide-react';
 
-/**
- * Reusable conversation list component
- * Used in both MessagesPage and MessengerPopup
- */
-function ConversationList({ 
-  conversations, 
-  selectedConversation, 
+function ConversationList({
+  conversations,
+  selectedConversation,
   onSelectConversation,
   searchQuery,
   onSearchChange,
   compact = false
 }) {
-  // ✅ Helper to get conversation ID (handles both 'id' and 'conversationId')
-  const getConversationId = (conv) => {
-    return conv?.conversationId || conv?.id;
-  };
-
-  // ✅ Helper to check if conversation is selected
-  const isSelected = (conv) => {
-    const convId = getConversationId(conv);
-    const selectedId = getConversationId(selectedConversation);
-    return convId && selectedId && convId === selectedId;
-  };
-
   return (
-    <div className="flex flex-col h-full">
-      {/* Search */}
-      <div className={`${compact ? 'p-3' : 'p-4'} border-b border-gray-200`}>
+    <div className="flex flex-col h-full bg-white">
+      {/* Search Bar */}
+      <div className={`${compact ? 'p-3' : 'p-4'} border-b border-gray-200 flex-shrink-0`}>
         <div className="relative">
-          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 ${compact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input
             type="text"
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className={`w-full ${compact ? 'pl-9 pr-4 py-2 text-sm' : 'pl-10 pr-4 py-2'} bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500`}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
           />
         </div>
       </div>
 
-      {/* Conversation Items */}
+      {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
         {conversations.length === 0 ? (
-          <div className="text-center py-8">
+          <div className="text-center py-12">
+            <div className="text-5xl mb-3">💬</div>
             <p className="text-gray-500 text-sm">No conversations yet</p>
           </div>
         ) : (
-          conversations.map((conv) => {
-            const convId = getConversationId(conv);
+          conversations.map((conversation) => {
+            const convId = conversation.id || conversation.conversationId;
+            const isSelected = 
+              selectedConversation?.id === convId || 
+              selectedConversation?.conversationId === convId;
             
-            // Skip conversations without valid IDs
-            if (!convId) {
-              console.warn('⚠️ Conversation missing ID:', conv);
-              return null;
-            }
+            // ✅ Check if conversation has unread messages
+            const hasUnread = (conversation.unreadCount || 0) > 0;
 
             return (
               <button
                 key={convId}
-                onClick={() => onSelectConversation(conv)}
-                className={`w-full ${compact ? 'p-3' : 'p-4'} flex items-center gap-3 hover:bg-gray-50 transition border-b border-gray-100 text-left ${
-                  isSelected(conv)
-                    ? 'bg-teal-50 border-l-4 border-l-teal-500'
-                    : ''
+                onClick={() => onSelectConversation(conversation)}
+                className={`w-full p-4 flex items-start gap-3 hover:bg-gray-50 transition border-b border-gray-100 ${
+                  isSelected ? 'bg-teal-50 border-l-4 border-l-teal-500' : ''
                 }`}
               >
-                {/* Avatar */}
+                {/* Avatar with Unread Indicator */}
                 <div className="relative flex-shrink-0">
                   <img
                     src={
-                      conv.otherParticipantAvatar ||
+                      conversation.otherParticipantAvatar ||
                       `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                        conv.otherParticipantName
+                        conversation.otherParticipantName
                       )}&background=14b8a6&color=fff`
                     }
-                    alt={conv.otherParticipantName}
+                    alt={conversation.otherParticipantName}
                     className={`${compact ? 'w-10 h-10' : 'w-12 h-12'} rounded-full object-cover`}
                     onError={(e) => {
                       e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                        conv.otherParticipantName
+                        conversation.otherParticipantName
                       )}&background=14b8a6&color=fff`;
                     }}
                   />
-                  {conv.unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      {conv.unreadCount > 9 ? '9+' : conv.unreadCount}
-                    </span>
+                  
+                  {/* ✅ Small red dot for unread (visual indicator only) */}
+                  {hasUnread && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
                   )}
                 </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start mb-1">
-                    <p className={`font-semibold text-gray-900 truncate ${compact ? 'text-sm' : ''}`}>
-                      {conv.otherParticipantName}
-                    </p>
-                    {/* ✅ Use lastMessageAt OR createdAt OR updatedAt */}
-                    {(conv.lastMessageAt || conv.updatedAt || conv.createdAt) && (
-                      <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                        {formatTimeAgo(conv.lastMessageAt || conv.updatedAt || conv.createdAt)}
-                      </span>
-                    )}
-                  </div>
-                  <p className={`text-sm truncate ${
-                    conv.unreadCount > 0 ? 'font-semibold text-gray-900' : 'text-gray-600'
+                {/* Conversation Info */}
+                <div className="flex-1 min-w-0 text-left">
+                  {/* ✅ Name - Bold if unread */}
+                  <p className={`${compact ? 'text-sm' : 'text-base'} truncate ${
+                    hasUnread 
+                      ? 'font-bold text-gray-900' 
+                      : 'font-medium text-gray-700'
                   }`}>
-                    {conv.lastMessage || 'Start a conversation'}
+                    {conversation.otherParticipantName}
                   </p>
+
+                  {/* ✅ Last Message - Bold if unread */}
+                  <p className={`text-xs truncate ${
+                    hasUnread 
+                      ? 'font-semibold text-gray-900' 
+                      : 'text-gray-500'
+                  }`}>
+                    {conversation.lastMessage || 'No messages yet'}
+                  </p>
+
+                  {/* Timestamp */}
+                  {conversation.lastMessageAt && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(conversation.lastMessageAt).toLocaleString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  )}
                 </div>
+
+                {/* ❌ REMOVED: Unread count badge - Only Navbar shows count */}
               </button>
             );
           })
@@ -117,33 +118,6 @@ function ConversationList({
       </div>
     </div>
   );
-}
-
-// Helper function for better timestamps
-function formatTimeAgo(timestamp) {
-  if (!timestamp) return '';
-  
-  const now = new Date();
-  const date = new Date(timestamp);
-  const seconds = Math.floor((now - date) / 1000);
-
-  if (seconds < 60) return 'Just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  
-  // If today, show time
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-  
-  // If this week, show day name
-  const daysDiff = Math.floor(seconds / 86400);
-  if (daysDiff < 7) {
-    return date.toLocaleDateString([], { weekday: 'short' });
-  }
-  
-  // Otherwise show date
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 export default ConversationList;

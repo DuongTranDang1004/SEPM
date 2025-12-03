@@ -317,4 +317,88 @@ public class TenantRepository {
             throw new RuntimeException("Failed to retrieve room", e);
         }
     }
+    /**
+     * Find all bookmarks for a specific room
+     */
+    public List<Bookmark> findBookmarksByRoomId(String roomId) {
+        try {
+            Query query = firestore.collection("bookmarks")
+                    .whereEqualTo("roomId", roomId);
+
+            QuerySnapshot querySnapshot = query.get().get();
+
+            return querySnapshot.getDocuments().stream()
+                    .map(doc -> doc.toObject(Bookmark.class))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error finding bookmarks for room: {}", roomId, e);
+            throw new RuntimeException("Failed to retrieve bookmarks for room", e);
+        }
+    }
+
+    /**
+     * Check if a conversation with specific participants already exists
+     * @param participantIds List of participant IDs (order doesn't matter)
+     */
+    public Optional<Conversation> findConversationByParticipants(List<String> participantIds) {
+        try {
+            // Sort IDs to ensure consistent comparison
+            List<String> sortedIds = participantIds.stream()
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            // Query all conversations
+            QuerySnapshot querySnapshot = firestore.collection(CONVERSATIONS_COLLECTION)
+                    .get()
+                    .get();
+
+            // Find conversation with exact matching participants
+            for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                Conversation conversation = doc.toObject(Conversation.class);
+                if (conversation != null) {
+                    List<String> conversationParticipants = conversation.getParticipantIds()
+                            .stream()
+                            .sorted()
+                            .collect(Collectors.toList());
+
+                    // Check if participant lists match exactly
+                    if (conversationParticipants.equals(sortedIds)) {
+                        return Optional.of(conversation);
+                    }
+                }
+            }
+
+            return Optional.empty();
+        } catch (Exception e) {
+            log.error("Error finding conversation by participants", e);
+            throw new RuntimeException("Failed to find conversation", e);
+        }
+    }
+
+    /**
+     * Check if two tenants have an active match
+     */
+    public boolean areTenantsMatched(String tenant1Id, String tenant2Id) {
+        try {
+            // Query for matches where tenant1 and tenant2 are matched
+            QuerySnapshot matches1 = firestore.collection(MATCHES_COLLECTION)
+                    .whereEqualTo("tenant1Id", tenant1Id)
+                    .whereEqualTo("tenant2Id", tenant2Id)
+                    .whereEqualTo("status", "ACTIVE")
+                    .get()
+                    .get();
+
+            QuerySnapshot matches2 = firestore.collection(MATCHES_COLLECTION)
+                    .whereEqualTo("tenant1Id", tenant2Id)
+                    .whereEqualTo("tenant2Id", tenant1Id)
+                    .whereEqualTo("status", "ACTIVE")
+                    .get()
+                    .get();
+
+            return !matches1.isEmpty() || !matches2.isEmpty();
+        } catch (Exception e) {
+            log.error("Error checking if tenants are matched: {} and {}", tenant1Id, tenant2Id, e);
+            throw new RuntimeException("Failed to check tenant match status", e);
+        }
+    }
 }

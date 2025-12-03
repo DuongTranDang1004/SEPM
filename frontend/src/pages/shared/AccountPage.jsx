@@ -46,10 +46,10 @@ function AccountPage() {
         return;
       }
 
-      // ✅ Use userService instead of direct fetch
+      // ✅ FIXED: No userId parameter needed - service handles it internally
       const data = userRole === 'TENANT' 
         ? await userService.getTenantProfile()
-        : await userService.getLandlordProfile(user.userId);
+        : await userService.getLandlordProfile();
 
       setUserData(data);
       setUpdateFormData({...data});
@@ -136,7 +136,6 @@ function AccountPage() {
         formData.append('avatar', updateFormData.avatarFile);
       }
 
-      // ✅ Use userService instead of direct fetch
       const responseData = userRole === 'TENANT'
         ? await userService.updateTenantProfile(formData)
         : await userService.updateLandlordProfile(formData);
@@ -171,7 +170,6 @@ function AccountPage() {
     setIsUpdating(true);
 
     try {
-      // ✅ Use userService instead of direct fetch
       await userService.changePassword(
         passwordData.currentPassword,
         passwordData.newPassword,

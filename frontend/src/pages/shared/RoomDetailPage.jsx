@@ -1,163 +1,397 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from "react";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { 
-  ArrowLeft, 
-  Bookmark, 
-  BookmarkCheck,
-  MapPin, 
-  MessageSquare,
-  Calendar,
-  Bed,
-  Bath,
-  Maximize2,
-  CheckCircle,
-  XCircle,
-  User,
-  Mail,
-  Share2,
-  Loader,
-  ChevronLeft,
-  ChevronRight,
-  Play,
-  X
+  MapPin, Calendar, Bookmark, ChevronLeft, Loader,
+  Bed, Bath, CheckCircle, XCircle, Upload, X, 
+  ChevronRight, Download, FileText, Image as ImageIcon, Video as VideoIcon
 } from 'lucide-react';
-import roomService from '../../services/roomService';
-import tenantService from '../../services/tenantService';
-import messageService from '../../services/messageService';
+import roomService from "../../services/roomService";
+import landlordService from "../../services/landlordService";
+import tenantService from "../../services/tenantService";
 
 function RoomDetailPage() {
   const { roomId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
 
-  // State
-  const [room, setRoom] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [showVideoModal, setShowVideoModal] = useState(false);
-  const [currentVideoUrl, setCurrentVideoUrl] = useState('');
-  const [bookmarkLoading, setBookmarkLoading] = useState(false);
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  // Get current user from localStorage
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
+  // Room data
+  const [room, setRoom] = useState(location.state?.room || null);
+  const [formRoom, setFormRoom] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Media gallery state
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [allMedia, setAllMedia] = useState([]); // Combined images + videos
+
+  // Media state for editing
+  const [newImages, setNewImages] = useState([]);
+  const [newVideos, setNewVideos] = useState([]);
+  const [newDocuments, setNewDocuments] = useState([]);
+  const [imagesToRemove, setImagesToRemove] = useState([]);
+  const [videosToRemove, setVideosToRemove] = useState([]);
+  const [documentsToRemove, setDocumentsToRemove] = useState([]);
+  const [replaceThumbnail, setReplaceThumbnail] = useState(false);
+  const [newThumbnail, setNewThumbnail] = useState(null);
+
+  // Refs for file inputs
+  const imageInputRef = useRef(null);
+  const videoInputRef = useRef(null);
+  const documentInputRef = useRef(null);
+  const thumbnailInputRef = useRef(null);
+
+  // UI states
+  const [loading, setLoading] = useState(!location.state?.room);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarking, setBookmarking] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [error, setError] = useState(null);
+
+  // Line 46-49 - Make sure it uses toUpperCase()
+  const isTenant = currentUser.role?.toUpperCase() === 'TENANT';
+  const isOwnerLandlord =
+    currentUser.role?.toUpperCase() === 'LANDLORD' &&
+    currentUser.userId === room?.landlordId;
+
+  // ✅ Fetch room data by ID if not passed via location.state
   useEffect(() => {
-    fetchRoomDetails();
-    checkIfBookmarked();
-  }, [roomId]);
+    if (!room && roomId) {
+      fetchRoomById();
+    }
+  }, [room, roomId]);
 
-  // ✅ Fetch room details using service
-  const fetchRoomDetails = async () => {
+  // ✅ Check if room is bookmarked (tenant only)
+  useEffect(() => {
+    if (room && isTenant) {
+      checkIfBookmarked();
+    }
+  }, [room, isTenant]);
+
+  const fetchRoomById = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
       const data = await roomService.getRoomById(roomId);
+      console.log('Fetched room:', data);
       setRoom(data);
-    } catch (error) {
-      console.error('Error fetching room:', error);
-      if (error.response?.status === 404) {
-        alert('Room not found');
-        navigate('/dashboard/tenant/find-rooms');
-      } else {
-        alert('Error loading room details. Please try again.');
+    } catch (err) {
+      console.error('Error fetching room:', err);
+      setError(err.response?.data?.message || 'Room not found');
+      
+      if (err.response?.status === 401) {
+        navigate('/login');
       }
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // ✅ Check if room is bookmarked using service
   const checkIfBookmarked = async () => {
     try {
       const bookmarks = await tenantService.getBookmarks();
-      const isBookmarked = bookmarks.some(bookmark => 
-        bookmark.room?.id === roomId || bookmark.roomId === roomId
+      const isBookmarked = bookmarks.some(b => 
+        (b.room?.id || b.roomId) === room.id
       );
-      setIsBookmarked(isBookmarked);
-    } catch (error) {
-      console.error('Error checking bookmark status:', error);
+      setBookmarked(isBookmarked);
+    } catch (err) {
+      console.error('Error checking bookmark status:', err);
     }
   };
 
-  // ✅ Toggle bookmark using service
-  const handleToggleBookmark = async () => {
-    setBookmarkLoading(true);
-    try {
-      if (isBookmarked) {
-        await tenantService.removeBookmark(roomId);
-      } else {
-        await tenantService.addBookmark(roomId);
-      }
-      setIsBookmarked(!isBookmarked);
-    } catch (error) {
-      console.error('Error toggling bookmark:', error);
-      alert('Failed to update bookmark. Please try again.');
-    } finally {
-      setBookmarkLoading(false);
+  // Initialize form data when room loads
+  useEffect(() => {
+    if (!room) return;
+
+    setFormRoom({
+      id: room.id,
+      title: room.title || "",
+      description: room.description || "",
+      rentPricePerMonth: room.rentPricePerMonth || "",
+      minimumStayMonths: room.minimumStayMonths || 1,
+      address: room.address || "",
+      latitude: room.latitude || "",
+      longitude: room.longitude || "",
+      numberOfToilets: room.numberOfToilets || 1,
+      numberOfBedRooms: room.numberOfBedRooms || 1,
+      hasWindow: typeof room.hasWindow === "boolean" ? room.hasWindow : true,
+      status: room.status || "PUBLISHED",
+      landlordId: room.landlordId,
+      thumbnailUrl: room.thumbnailUrl,
+      imageUrls: room.imageUrls || [],
+      videoUrls: room.videoUrls || [],
+      documentUrls: room.documentUrls || [],
+    });
+
+    // ✅ Build combined media array (images + videos)
+    const media = [];
+
+    // 1. Add thumbnail FIRST (if exists)
+    if (room.thumbnailUrl) {
+      media.push({ type: 'image', url: room.thumbnailUrl, isThumbnail: true });
     }
-  };
-
-  // ✅ Contact landlord - create conversation using service
-  const handleContactLandlord = async () => {
-    setIsCreatingConversation(true);
-
-    try {
-      // Create or get existing conversation with landlord
-      const conversation = await messageService.createOrGetConversation(room.landlordId);
-      
-      // Navigate to messages page with conversation
-      navigate('/dashboard/messages', {
-        state: {
-          conversationId: conversation.conversationId,
-          recipientName: room.landlordName
+    
+    // 2. Add all images (excluding thumbnail if it's in imageUrls)
+    if (room.imageUrls && room.imageUrls.length > 0) {
+      room.imageUrls.forEach(url => {
+        // Skip if this image is the same as thumbnail (avoid duplicates)
+        if (url !== room.thumbnailUrl) {
+          media.push({ type: 'image', url });
         }
       });
-    } catch (error) {
-      console.error('Error creating conversation:', error);
-      alert('Failed to start conversation. Please try again.');
-    } finally {
-      setIsCreatingConversation(false);
+    }
+    
+    // Add all videos
+    if (room.videoUrls && room.videoUrls.length > 0) {
+      room.videoUrls.forEach(url => {
+        media.push({ type: 'video', url });
+      });
+    }
+
+    console.log('📸 Media array built:', media); // ✅ Debug log to verify
+
+    setAllMedia(media);
+    setCurrentMediaIndex(0);
+
+    // Reset media editing state
+    setNewImages([]);
+    setNewVideos([]);
+    setNewDocuments([]);
+    setImagesToRemove([]);
+    setVideosToRemove([]);
+    setDocumentsToRemove([]);
+    setReplaceThumbnail(false);
+    setNewThumbnail(null);
+  }, [room]);
+
+  /* ---------- Form handlers ---------- */
+  const handleChange = (field) => (e) => {
+    const value =
+      e.target.type === "number" ? e.target.valueAsNumber || "" : e.target.value;
+    setFormRoom((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleCheckbox = (field) => (e) => {
+    setFormRoom((prev) => ({ ...prev, [field]: e.target.checked }));
+  };
+
+  const handleSelect = (field) => (e) => {
+    setFormRoom((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  /* ---------- Media gallery navigation ---------- */
+  const handlePrevMedia = () => {
+    setCurrentMediaIndex((prev) => 
+      prev === 0 ? allMedia.length - 1 : prev - 1
+    );
+  };
+
+  const handleNextMedia = () => {
+    setCurrentMediaIndex((prev) => 
+      prev === allMedia.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  /* ---------- Media handlers ---------- */
+  const handleThumbnailChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewThumbnail(file);
+      setReplaceThumbnail(true);
     }
   };
 
-  // Image navigation
-  const handlePrevImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === 0 ? room.imageUrls.length - 1 : prev - 1
+  const handleAddImages = (e) => {
+    const files = Array.from(e.target.files || []);
+    const currentTotal = (formRoom.imageUrls?.length || 0) - imagesToRemove.length + newImages.length;
+    const available = 3 - currentTotal;
+    
+    if (files.length > available) {
+      alert(`You can only add ${available} more image(s). Maximum is 3 images total.`);
+      setNewImages(prev => [...prev, ...files.slice(0, available)]);
+    } else {
+      setNewImages(prev => [...prev, ...files]);
+    }
+  };
+
+  const handleAddVideos = (e) => {
+    const files = Array.from(e.target.files || []);
+    const currentTotal = (formRoom.videoUrls?.length || 0) - videosToRemove.length + newVideos.length;
+    const available = 2 - currentTotal;
+    
+    if (files.length > available) {
+      alert(`You can only add ${available} more video(s). Maximum is 2 videos total.`);
+      setNewVideos(prev => [...prev, ...files.slice(0, available)]);
+    } else {
+      setNewVideos(prev => [...prev, ...files]);
+    }
+  };
+
+  const handleAddDocuments = (e) => {
+    const files = Array.from(e.target.files || []);
+    const currentTotal = (formRoom.documentUrls?.length || 0) - documentsToRemove.length + newDocuments.length;
+    const available = 3 - currentTotal;
+    
+    if (files.length > available) {
+      alert(`You can only add ${available} more document(s). Maximum is 3 documents total.`);
+      setNewDocuments(prev => [...prev, ...files.slice(0, available)]);
+    } else {
+      setNewDocuments(prev => [...prev, ...files]);
+    }
+  };
+
+  const toggleRemoveImage = (url) => {
+    setImagesToRemove(prev =>
+      prev.includes(url) ? prev.filter(u => u !== url) : [...prev, url]
     );
   };
 
-  const handleNextImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === room.imageUrls.length - 1 ? 0 : prev + 1
+  const toggleRemoveVideo = (url) => {
+    setVideosToRemove(prev =>
+      prev.includes(url) ? prev.filter(u => u !== url) : [...prev, url]
     );
   };
 
-  // Video modal
-  const handlePlayVideo = (videoUrl) => {
-    setCurrentVideoUrl(videoUrl);
-    setShowVideoModal(true);
+  const toggleRemoveDocument = (url) => {
+    setDocumentsToRemove(prev =>
+      prev.includes(url) ? prev.filter(u => u !== url) : [...prev, url]
+    );
   };
 
-  const handleCloseVideoModal = () => {
-    setShowVideoModal(false);
-    setCurrentVideoUrl('');
+  const removeNewImage = (index) => {
+    setNewImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Format currency (VND)
-  const formatCurrency = (amount) => {
-    if (!amount) return '0';
-    return new Intl.NumberFormat('vi-VN').format(amount);
+  const removeNewVideo = (index) => {
+    setNewVideos(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Immediately';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const removeNewDocument = (index) => {
+    setNewDocuments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  /* ---------- Save edit ---------- */
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData();
+
+    // Basic fields matching backend parameter names
+    formData.append('title', formRoom.title);
+    formData.append('description', formRoom.description || '');
+    formData.append('rentPricePerMonth', Number(formRoom.rentPricePerMonth) || 0);
+    formData.append('minimumStayMonths', formRoom.minimumStayMonths || 1);
+    formData.append('address', formRoom.address);
+
+    if (formRoom.latitude) formData.append('latitude', formRoom.latitude);
+    if (formRoom.longitude) formData.append('longitude', formRoom.longitude);
+
+    formData.append('numberOfToilets', formRoom.numberOfToilets || 1);
+    formData.append('numberOfBedRooms', formRoom.numberOfBedRooms || 1);
+    formData.append('hasWindow', formRoom.hasWindow);
+    formData.append('status', formRoom.status);
+
+    // ✅ Media removal - send as arrays
+    if (imagesToRemove.length > 0) {
+      imagesToRemove.forEach(url => formData.append('imagesToRemove', url));
+    }
+    if (videosToRemove.length > 0) {
+      videosToRemove.forEach(url => formData.append('videosToRemove', url));
+    }
+    if (documentsToRemove.length > 0) {
+      documentsToRemove.forEach(url => formData.append('documentsToRemove', url));
+    }
+
+    // ✅ Thumbnail replacement
+    formData.append('replaceThumbnail', replaceThumbnail);
+    if (newThumbnail) {
+      formData.append('thumbnail', newThumbnail);
+    }
+
+    // ✅ New media files
+    newImages.forEach(file => formData.append('images', file));
+    newVideos.forEach(file => formData.append('videos', file));
+    newDocuments.forEach(file => formData.append('documents', file));
+
+    try {
+      setSaving(true);
+      setSaveMessage("");
+      setError(null);
+
+      console.log('Updating room with media...');
+
+      const updatedRoom = await landlordService.updateRoom(formRoom.id, formData);
+
+      console.log('Room updated successfully:', updatedRoom);
+
+      setRoom(updatedRoom);
+      setFormRoom(updatedRoom);
+      setSaving(false);
+      setIsEditing(false);
+      setSaveMessage("Room updated successfully.");
+
+      // Reset media state
+      setNewImages([]);
+      setNewVideos([]);
+      setNewDocuments([]);
+      setImagesToRemove([]);
+      setVideosToRemove([]);
+      setDocumentsToRemove([]);
+      setReplaceThumbnail(false);
+      setNewThumbnail(null);
+
+      setTimeout(() => setSaveMessage(""), 3000);
+
+    } catch (err) {
+      console.error('Failed to update room:', err);
+      setSaving(false);
+      setError(err.response?.data?.message || 'Failed to update room');
+      setSaveMessage("");
+
+      if (err.response?.status === 401) {
+        navigate('/login');
+      }
+    }
+  };
+
+  /* ---------- Bookmark handling (tenant) ---------- */
+  const handleToggleBookmark = async () => {
+    if (!isTenant) {
+      alert('Only tenants can bookmark rooms');
+      return;
+    }
+
+    setBookmarking(true);
+
+    try {
+      if (bookmarked) {
+        await tenantService.removeBookmark(room.id);
+        setBookmarked(false);
+        
+        window.dispatchEvent(new CustomEvent('dashboardActivity', {
+          detail: { type: 'unbookmark', data: { roomId: room.id, roomTitle: room.title } }
+        }));
+      } else {
+        await tenantService.addBookmark(room.id);
+        setBookmarked(true);
+        
+        window.dispatchEvent(new CustomEvent('dashboardActivity', {
+          detail: { type: 'bookmark', data: { roomId: room.id, roomTitle: room.title } }
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to toggle bookmark:', err);
+      alert(err.response?.data?.message || 'Failed to update bookmark');
+    } finally {
+      setBookmarking(false);
+    }
   };
 
   // Loading state
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-white">
         <div className="text-center">
@@ -168,401 +402,759 @@ function RoomDetailPage() {
     );
   }
 
-  if (!room) {
+  // Error state
+  if (error || !formRoom) {
     return (
-      <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-white">
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-white p-4">
         <div className="text-center">
-          <p className="text-gray-600 font-medium mb-4">Room not found</p>
+          <div className="text-6xl mb-4">🏠</div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Room Not Found</h3>
+          <p className="text-red-600 mb-4">{error || 'This room does not exist or has been removed'}</p>
           <button
-            onClick={() => navigate('/dashboard/tenant/find-rooms')}
-            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+            onClick={() => navigate(-1)}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition"
           >
-            Back to Search
+            ← Go Back
           </button>
         </div>
       </div>
     );
   }
 
-  const hasImages = room.imageUrls && room.imageUrls.length > 0;
-  const hasVideos = room.videoUrls && room.videoUrls.length > 0;
+  const currentMedia = allMedia[currentMediaIndex];
 
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-teal-50 to-white">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Back</span>
-            </button>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleToggleBookmark}
-                disabled={bookmarkLoading}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-                  isBookmarked
-                    ? 'bg-teal-600 text-white border-teal-600 hover:bg-teal-700'
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-teal-600 hover:text-teal-600'
-                } ${bookmarkLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {bookmarkLoading ? (
-                  <Loader className="w-4 h-4 animate-spin" />
-                ) : isBookmarked ? (
-                  <BookmarkCheck className="w-4 h-4" />
-                ) : (
-                  <Bookmark className="w-4 h-4" />
-                )}
-                <span className="font-medium">
-                  {isBookmarked ? 'Saved' : 'Save'}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  alert('Share functionality coming soon!');
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:border-gray-400 transition"
-              >
-                <Share2 className="w-4 h-4" />
-                <span className="font-medium">Share</span>
-              </button>
-            </div>
+      {/* Overlay saving */}
+      {saving && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center">
+            <Loader className="w-12 h-12 text-teal-600 animate-spin mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-900 mb-2">Saving your changes…</p>
+            <p className="text-sm text-gray-600">
+              Please wait while we update your room.
+            </p>
           </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="bg-white shadow-md sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
+          >
+            <ChevronLeft className="w-5 h-5" />
+            <span className="font-medium">Back</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Image Gallery */}
-        {hasImages && (
-          <div className="mb-8">
-            <div className="relative bg-gray-900 rounded-2xl overflow-hidden" style={{ height: '500px' }}>
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Success message */}
+        {saveMessage && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+            <p className="text-green-800"><strong>Success:</strong> {saveMessage}</p>
+          </div>
+        )}
+
+        {/* Error message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+            <p className="text-red-800"><strong>Error:</strong> {error}</p>
+          </div>
+        )}
+
+        {/* ✅ MEDIA GALLERY CAROUSEL */}
+        {allMedia.length > 0 && (
+          <div className="relative h-96 rounded-2xl overflow-hidden mb-6 shadow-lg bg-black">
+            {/* Current Media Display */}
+            {currentMedia?.type === 'image' ? (
               <img
-                src={room.imageUrls[currentImageIndex]}
-                alt={`${room.title} - Image ${currentImageIndex + 1}`}
-                className="w-full h-full object-cover"
-                onError={(e) => { 
-                  e.target.src = 'https://placehold.co/800x600/E0E0E0/666666?text=No+Image'; 
+                src={currentMedia.url}
+                alt={`Media ${currentMediaIndex + 1}`}
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  e.target.src = 'https://placehold.co/1200x600/14B8A6/FFFFFF?text=Image+Not+Available';
                 }}
               />
+            ) : currentMedia?.type === 'video' ? (
+              <video
+                key={currentMedia.url}
+                src={currentMedia.url}
+                className="w-full h-full object-contain"
+                controls
+                controlsList="nodownload"
+              >
+                Your browser does not support the video tag.
+              </video>
+            ) : null}
 
-              {/* Image Navigation */}
-              {room.imageUrls.length > 1 && (
-                <>
-                  <button
-                    onClick={handlePrevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 rounded-full p-3 shadow-lg transition"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  <button
-                    onClick={handleNextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 rounded-full p-3 shadow-lg transition"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
+            {/* Bookmark Button (Tenant Only) */}
+            {isTenant && (
+              <button
+                onClick={handleToggleBookmark}
+                disabled={bookmarking}
+                className={`absolute top-4 right-4 p-3 rounded-full shadow-lg transition ${
+                  bookmarked
+                    ? 'bg-teal-500 text-white'
+                    : 'bg-white text-gray-600 hover:bg-teal-50'
+                } ${bookmarking ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {bookmarking ? (
+                  <Loader className="w-6 h-6 animate-spin" />
+                ) : (
+                  <Bookmark className="w-6 h-6" fill={bookmarked ? 'currentColor' : 'none'} />
+                )}
+              </button>
+            )}
 
-                  {/* Image Counter */}
-                  <div className="absolute bottom-4 right-4 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium">
-                    {currentImageIndex + 1} / {room.imageUrls.length}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Thumbnail Gallery */}
-            {room.imageUrls.length > 1 && (
-              <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
-                {room.imageUrls.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentImageIndex(index)}
-                    className={`flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 transition ${
-                      currentImageIndex === index
-                        ? 'border-teal-600'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <img
-                      src={image}
-                      alt={`Thumbnail ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { 
-                        e.target.src = 'https://placehold.co/200x200/E0E0E0/666666?text=No+Image'; 
-                      }}
-                    />
-                  </button>
-                ))}
+            {/* Status Badge */}
+            {formRoom.status && (
+              <div className={`absolute top-4 left-4 px-4 py-2 rounded-full font-semibold text-sm shadow-lg ${
+                formRoom.status === 'PUBLISHED'
+                  ? 'bg-green-500 text-white'
+                  : formRoom.status === 'RENTED'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-gray-500 text-white'
+              }`}>
+                {formRoom.status}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Video Gallery */}
-        {hasVideos && (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Video Tour</h3>
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {room.videoUrls.map((video, index) => (
+            {/* Navigation Arrows */}
+            {allMedia.length > 1 && (
+              <>
                 <button
-                  key={index}
-                  onClick={() => handlePlayVideo(video)}
-                  className="relative flex-shrink-0 w-64 h-40 rounded-xl overflow-hidden bg-gray-900 hover:opacity-90 transition group"
+                  onClick={handlePrevMedia}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 p-3 rounded-full shadow-lg transition"
                 >
-                  <video
-                    src={video}
-                    className="w-full h-full object-cover"
-                    muted
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition">
-                    <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center">
-                      <Play className="w-8 h-8 text-teal-600 ml-1" />
-                    </div>
-                  </div>
+                  <ChevronLeft className="w-6 h-6" />
                 </button>
-              ))}
+                <button
+                  onClick={handleNextMedia}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 p-3 rounded-full shadow-lg transition"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+
+            {/* Media Counter & Type Indicator */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-full flex items-center gap-2">
+              {currentMedia?.type === 'image' ? (
+                <ImageIcon className="w-4 h-4" />
+              ) : (
+                <VideoIcon className="w-4 h-4" />
+              )}
+              <span className="font-semibold">
+                {currentMediaIndex + 1} / {allMedia.length}
+              </span>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Main Info */}
+        {/* ✅ THUMBNAIL NAVIGATION (if multiple media) */}
+        {allMedia.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
+            {allMedia.map((media, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentMediaIndex(idx)}
+                className={`flex-shrink-0 relative w-24 h-24 rounded-lg overflow-hidden border-2 transition ${
+                  currentMediaIndex === idx
+                    ? 'border-teal-500'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {media.type === 'image' ? (
+                  <img
+                    src={media.url}
+                    alt={`Thumbnail ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                    <VideoIcon className="w-8 h-8 text-white" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left: Room Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Title & Price */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{room.title}</h1>
-              <div className="flex items-center gap-2 text-gray-600 mb-4">
-                <MapPin className="w-5 h-5" />
-                <span>{room.address}</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold text-teal-600">
-                  {formatCurrency(room.rentPricePerMonth)}
-                </span>
-                <span className="text-2xl font-bold text-teal-600">₫</span>
-                <span className="text-gray-600">/month</span>
-              </div>
-              {room.depositAmount > 0 && (
-                <p className="text-sm text-gray-600 mt-2">
-                  Security Deposit: {formatCurrency(room.depositAmount)}₫
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {formRoom.title || "Room Title"}
+              </h1>
+              
+              {formRoom.address && (
+                <p className="text-gray-600 flex items-center gap-2 mb-4">
+                  <MapPin className="w-5 h-5 text-teal-500" />
+                  {formRoom.address}
                 </p>
               )}
-            </div>
 
-            {/* Key Details */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Property Details</h2>
+              <div className="flex items-baseline gap-2 mb-6">
+                <span className="text-4xl font-bold text-teal-600">
+                  {formRoom.rentPricePerMonth?.toLocaleString('vi-VN')}
+                </span>
+                <span className="text-4xl font-bold text-teal-600">₫</span>
+                <span className="text-xl text-gray-500">/month</span>
+              </div>
+
+              {/* Quick Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 p-3 bg-teal-50 rounded-lg">
                   <Bed className="w-5 h-5 text-teal-600" />
                   <div>
-                    <p className="text-sm text-gray-600">Bedrooms</p>
-                    <p className="font-semibold text-gray-900">{room.numberOfBedRooms || 0}</p>
+                    <p className="text-xs text-gray-600">Bedrooms</p>
+                    <p className="font-semibold text-gray-900">{formRoom.numberOfBedRooms}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Bath className="w-5 h-5 text-teal-600" />
+                
+                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+                  <Bath className="w-5 h-5 text-blue-600" />
                   <div>
-                    <p className="text-sm text-gray-600">Bathrooms</p>
-                    <p className="font-semibold text-gray-900">{room.numberOfToilets || 0}</p>
+                    <p className="text-xs text-gray-600">Bathrooms</p>
+                    <p className="font-semibold text-gray-900">{formRoom.numberOfToilets}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Maximize2 className="w-5 h-5 text-teal-600" />
+
+                <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
+                  <Calendar className="w-5 h-5 text-purple-600" />
                   <div>
-                    <p className="text-sm text-gray-600">Floor Area</p>
-                    <p className="font-semibold text-gray-900">{room.floorArea || 'N/A'} m²</p>
+                    <p className="text-xs text-gray-600">Min. Stay</p>
+                    <p className="font-semibold text-gray-900">{formRoom.minimumStayMonths}mo</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-teal-600" />
+
+                <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
+                  {formRoom.hasWindow ? (
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-gray-400" />
+                  )}
                   <div>
-                    <p className="text-sm text-gray-600">Available</p>
+                    <p className="text-xs text-gray-600">Window</p>
                     <p className="font-semibold text-gray-900">
-                      {formatDate(room.availableFrom)}
+                      {formRoom.hasWindow ? 'Yes' : 'No'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Min. Stay</p>
-                  <p className="font-semibold text-gray-900">{room.minimumStayMonths || 0} months</p>
+              {/* Action Buttons */}
+              {isOwnerLandlord && (
+                <div className="mt-6">
+                  <button
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="w-full bg-teal-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-teal-700 transition"
+                  >
+                    {isEditing ? 'Cancel Editing' : 'Edit Room Details'}
+                  </button>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Furnishing</p>
-                  <p className="font-semibold text-gray-900">{room.furnishingStatus || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Pet Policy</p>
-                  <p className="font-semibold text-gray-900">
-                    {room.petAllowed ? 'Pets Allowed' : 'No Pets'}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Description */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Description</h2>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                {room.description || 'No description available.'}
-              </p>
-            </div>
+            {!isEditing && (
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">About This Room</h2>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                  {formRoom.description || "No description provided."}
+                </p>
+              </div>
+            )}
 
-            {/* Window Feature */}
-            {room.hasWindow !== undefined && (
-              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-                <div className="flex items-center gap-3">
-                  {room.hasWindow ? (
-                    <>
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                      <div>
-                        <p className="font-semibold text-gray-900">Has Window</p>
-                        <p className="text-sm text-gray-600">This room has natural lighting</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-6 h-6 text-gray-600" />
-                      <div>
-                        <p className="font-semibold text-gray-900">No Window</p>
-                        <p className="text-sm text-gray-600">This room doesn't have a window</p>
-                      </div>
-                    </>
-                  )}
+            {/* ✅ DOCUMENTS SECTION */}
+            {!isEditing && formRoom.documentUrls && formRoom.documentUrls.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <FileText className="w-6 h-6 text-teal-600" />
+                  Documents
+                </h2>
+                <div className="space-y-2">
+                  {formRoom.documentUrls.map((url, idx) => {
+                    const filename = url.split('/').pop() || `Document ${idx + 1}`;
+                    return (
+                      <a
+                        key={idx}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-5 h-5 text-teal-600" />
+                          <span className="text-sm font-medium text-gray-900 truncate">
+                            {filename}
+                          </span>
+                        </div>
+                        <Download className="w-5 h-5 text-gray-400 group-hover:text-teal-600 transition" />
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Smoking Policy */}
-            {room.smokingAllowed !== undefined && (
-              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-                <div className="flex items-center gap-3">
-                  {room.smokingAllowed ? (
-                    <>
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                      <div>
-                        <p className="font-semibold text-gray-900">Smoking Allowed</p>
-                        <p className="text-sm text-gray-600">This property allows smoking</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-6 h-6 text-red-600" />
-                      <div>
-                        <p className="font-semibold text-gray-900">No Smoking</p>
-                        <p className="text-sm text-gray-600">This is a smoke-free property</p>
-                      </div>
-                    </>
-                  )}
+            {/* Edit Form (Owner Only) */}
+            {isOwnerLandlord && isEditing && (
+              <form onSubmit={handleSaveEdit} className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
+                <h2 className="text-xl font-bold text-gray-900">Edit Room Details</h2>
+
+                {/* Basic Info */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={formRoom.title}
+                      onChange={handleChange("title")}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={formRoom.description}
+                      onChange={handleChange("description")}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Address *
+                    </label>
+                    <input
+                      type="text"
+                      value={formRoom.address}
+                      onChange={handleChange("address")}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Monthly Rent (₫) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formRoom.rentPricePerMonth}
+                        onChange={handleChange("rentPricePerMonth")}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Min. Stay (months) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formRoom.minimumStayMonths}
+                        onChange={handleChange("minimumStayMonths")}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bedrooms *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formRoom.numberOfBedRooms}
+                        onChange={handleChange("numberOfBedRooms")}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bathrooms *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formRoom.numberOfToilets}
+                        onChange={handleChange("numberOfToilets")}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Status
+                      </label>
+                      <select
+                        value={formRoom.status}
+                        onChange={handleSelect("status")}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      >
+                        <option value="PUBLISHED">Published</option>
+                        <option value="RENTED">Rented</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-6">
+                      <input
+                        type="checkbox"
+                        id="hasWindow"
+                        checked={formRoom.hasWindow}
+                        onChange={handleCheckbox("hasWindow")}
+                        className="w-5 h-5 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                      />
+                      <label htmlFor="hasWindow" className="text-sm font-medium text-gray-700">
+                        Has Window
+                      </label>
+                    </div>
+                  </div>
                 </div>
-              </div>
+
+                {/* Media Management */}
+                <div className="space-y-6 border-t pt-6">
+                  <h3 className="text-lg font-bold text-gray-900">Manage Media</h3>
+
+                  {/* Thumbnail */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Thumbnail
+                    </label>
+                    {formRoom.thumbnailUrl && !replaceThumbnail && (
+                      <div className="mb-2">
+                        <img
+                          src={formRoom.thumbnailUrl}
+                          alt="Current thumbnail"
+                          className="w-32 h-32 object-cover rounded-lg"
+                        />
+                      </div>
+                    )}
+                    <input
+                      ref={thumbnailInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleThumbnailChange}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => thumbnailInputRef.current?.click()}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {replaceThumbnail ? 'Replace Thumbnail' : 'Upload New Thumbnail'}
+                    </button>
+                    {newThumbnail && (
+                      <p className="text-sm text-green-600 mt-2">✓ New thumbnail selected: {newThumbnail.name}</p>
+                    )}
+                  </div>
+
+                  {/* Images */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Images ({(formRoom.imageUrls?.length || 0) - imagesToRemove.length + newImages.length}/3)
+                    </label>
+                    
+                    {/* Existing images */}
+                    {formRoom.imageUrls && formRoom.imageUrls.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        {formRoom.imageUrls.map((url, idx) => (
+                          <div key={idx} className="relative">
+                            <img
+                              src={url}
+                              alt={`Image ${idx + 1}`}
+                              className={`w-full h-24 object-cover rounded-lg ${
+                                imagesToRemove.includes(url) ? 'opacity-30' : ''
+                              }`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => toggleRemoveImage(url)}
+                              className={`absolute top-1 right-1 p-1 rounded-full ${
+                                imagesToRemove.includes(url)
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-red-500 text-white'
+                              }`}
+                            >
+                              {imagesToRemove.includes(url) ? '↺' : <X className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* New images */}
+                    {newImages.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        {newImages.map((file, idx) => (
+                          <div key={idx} className="relative">
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={`New ${idx + 1}`}
+                              className="w-full h-24 object-cover rounded-lg border-2 border-green-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeNewImage(idx)}
+                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleAddImages}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={(formRoom.imageUrls?.length || 0) - imagesToRemove.length + newImages.length >= 3}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Add Images
+                    </button>
+                  </div>
+
+                  {/* Videos */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Videos ({(formRoom.videoUrls?.length || 0) - videosToRemove.length + newVideos.length}/2)
+                    </label>
+                    
+                    {/* Existing videos */}
+                    {formRoom.videoUrls && formRoom.videoUrls.length > 0 && (
+                      <div className="space-y-2 mb-2">
+                        {formRoom.videoUrls.map((url, idx) => (
+                          <div key={idx} className={`flex items-center justify-between p-2 border rounded-lg ${
+                            videosToRemove.includes(url) ? 'opacity-30 bg-gray-50' : ''
+                          }`}>
+                            <span className="text-sm truncate">Video {idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleRemoveVideo(url)}
+                              className={`px-3 py-1 rounded text-sm ${
+                                videosToRemove.includes(url)
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-red-500 text-white'
+                              }`}
+                            >
+                              {videosToRemove.includes(url) ? 'Undo' : 'Remove'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* New videos */}
+                    {newVideos.length > 0 && (
+                      <div className="space-y-2 mb-2">
+                        {newVideos.map((file, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 border-2 border-green-500 rounded-lg">
+                            <span className="text-sm truncate">{file.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeNewVideo(idx)}
+                              className="px-3 py-1 bg-red-500 text-white rounded text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <input
+                      ref={videoInputRef}
+                      type="file"
+                      accept="video/*"
+                      multiple
+                      onChange={handleAddVideos}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => videoInputRef.current?.click()}
+                      disabled={(formRoom.videoUrls?.length || 0) - videosToRemove.length + newVideos.length >= 2}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Add Videos
+                    </button>
+                  </div>
+
+                  {/* Documents */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Documents ({(formRoom.documentUrls?.length || 0) - documentsToRemove.length + newDocuments.length}/3)
+                    </label>
+                    
+                    {/* Existing documents */}
+                    {formRoom.documentUrls && formRoom.documentUrls.length > 0 && (
+                      <div className="space-y-2 mb-2">
+                        {formRoom.documentUrls.map((url, idx) => (
+                          <div key={idx} className={`flex items-center justify-between p-2 border rounded-lg ${
+                            documentsToRemove.includes(url) ? 'opacity-30 bg-gray-50' : ''
+                          }`}>
+                            <span className="text-sm truncate">Document {idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleRemoveDocument(url)}
+                              className={`px-3 py-1 rounded text-sm ${
+                                documentsToRemove.includes(url)
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-red-500 text-white'
+                              }`}
+                            >
+                              {documentsToRemove.includes(url) ? 'Undo' : 'Remove'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* New documents */}
+                    {newDocuments.length > 0 && (
+                      <div className="space-y-2 mb-2">
+                        {newDocuments.map((file, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 border-2 border-green-500 rounded-lg">
+                            <span className="text-sm truncate">{file.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeNewDocument(idx)}
+                              className="px-3 py-1 bg-red-500 text-white rounded text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <input
+                      ref={documentInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                      multiple
+                      onChange={handleAddDocuments}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => documentInputRef.current?.click()}
+                      disabled={(formRoom.documentUrls?.length || 0) - documentsToRemove.length + newDocuments.length >= 3}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Add Documents
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-teal-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-teal-700 transition"
+                >
+                  Save All Changes
+                </button>
+              </form>
             )}
           </div>
 
-          {/* Right Column - Landlord Info & Actions */}
+          {/* Right: Landlord Info & Location */}
           <div className="space-y-6">
             {/* Landlord Card */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 sticky top-24">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Contact Landlord</h3>
-              
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center">
-                  <User className="w-8 h-8 text-white" />
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Landlord</h3>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center text-2xl">
+                  🧑🏻‍💼
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 text-lg">{room.landlordName || 'Owner'}</p>
-                  <p className="text-sm text-gray-600">Property Owner</p>
+                  <p className="font-semibold text-gray-900">Property Owner</p>
+                  <p className="text-sm text-teal-600">Verified landlord</p>
                 </div>
               </div>
+            </div>
 
-              {room.landlordEmail && (
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <Mail className="w-5 h-5 text-teal-600" />
-                    <span className="text-sm">{room.landlordEmail}</span>
+            {/* Media Summary */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Media</h3>
+              <div className="space-y-2">
+                {formRoom.imageUrls && formRoom.imageUrls.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <ImageIcon className="w-5 h-5 text-teal-600" />
+                    <span>{formRoom.imageUrls.length} photo{formRoom.imageUrls.length !== 1 ? 's' : ''}</span>
                   </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleContactLandlord}
-                disabled={isCreatingConversation}
-                className="w-full px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl font-semibold hover:shadow-lg transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isCreatingConversation ? (
-                  <>
-                    <Loader className="w-5 h-5 animate-spin" />
-                    <span>Loading...</span>
-                  </>
-                ) : (
-                  <>
-                    <MessageSquare className="w-5 h-5" />
-                    <span>Send Message</span>
-                  </>
                 )}
-              </button>
+                {formRoom.videoUrls && formRoom.videoUrls.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <VideoIcon className="w-5 h-5 text-purple-600" />
+                    <span>{formRoom.videoUrls.length} video{formRoom.videoUrls.length !== 1 ? 's' : ''}</span>
+                  </div>
+                )}
+                {formRoom.documentUrls && formRoom.documentUrls.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <span>{formRoom.documentUrls.length} document{formRoom.documentUrls.length !== 1 ? 's' : ''}</span>
+                  </div>
+                )}
+                {!formRoom.imageUrls?.length && !formRoom.videoUrls?.length && !formRoom.documentUrls?.length && (
+                  <p className="text-sm text-gray-500">No media uploaded</p>
+                )}
+              </div>
+            </div>
 
-              <div className="mt-4 p-4 bg-teal-50 rounded-lg border border-teal-100">
-                <p className="text-xs text-gray-600 text-center">
-                  Message the landlord to schedule a viewing or ask questions
+            {/* Location */}
+            {(formRoom.latitude && formRoom.longitude) && (
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Location</h3>
+                <p className="text-sm text-gray-600">
+                  <strong>Coordinates:</strong><br />
+                  {formRoom.latitude}, {formRoom.longitude}
                 </p>
               </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="bg-gradient-to-br from-teal-50 to-purple-50 rounded-2xl p-6 border border-teal-100">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Info</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Listed</span>
-                  <span className="font-semibold text-gray-900">
-                    {formatDate(room.createdAt)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Status</span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    room.status === 'PUBLISHED'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    {room.status || 'Available'}
-                  </span>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Video Modal */}
-      {showVideoModal && currentVideoUrl && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-          <div className="relative w-full max-w-5xl">
-            <button
-              onClick={handleCloseVideoModal}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition"
-            >
-              <X className="w-8 h-8" />
-            </button>
-            <video
-              src={currentVideoUrl}
-              controls
-              autoPlay
-              className="w-full rounded-xl"
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

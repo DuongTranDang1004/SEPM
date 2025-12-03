@@ -5,9 +5,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.Broomate.dto.request.tenant.SwipeRequest;
 import org.example.Broomate.dto.request.tenant.UpdateTenantProfileRequest;
+import org.example.Broomate.dto.response.allAuthUser.ConversationDetailResponse;
 import org.example.Broomate.dto.response.tenant.*;
+import org.example.Broomate.dto.websocket.ThreeWayConversationNotification;
 import org.example.Broomate.model.*;
+import org.example.Broomate.repository.AllAuthUserRepository;
 import org.example.Broomate.repository.TenantRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -27,6 +31,10 @@ public class TenantService {
 
     private final TenantRepository tenantRepository;
     private final FileStorageService fileStorageService;
+    @Autowired
+    private WebSocketService webSocketService;
+    @Autowired
+    private AllAuthUserRepository allAuthUserRepository;
 
     private static final int REJECTION_COOLDOWN_MINUTES = 10;
 
@@ -329,6 +337,9 @@ public class TenantService {
     // ========================================
 // BOOKMARK ROOM
 // ========================================
+    // ========================================
+// BOOKMARK ROOM (WITH 3-WAY CONVERSATION LOGIC)
+// ========================================
     public BookmarkResponse bookmarkRoom(String tenantId, String roomId) {
         log.info("Bookmarking room {} for tenant {}", roomId, tenantId);
 
@@ -369,10 +380,160 @@ public class TenantService {
 
         log.info("Room bookmarked successfully: {}", roomId);
 
-        // Return without room details (lightweight response)
+        // ✅ 6. CHECK FOR 3-WAY CONVERSATION LOGIC
+        // Find all bookmarks for this room (excluding current tenant)
+        List<Bookmark> roomBookmarks = tenantRepository.findBookmarksByRoomId(roomId)
+                .stream()
+                .filter(b -> !b.getTenantId().equals(tenantId))
+                .collect(Collectors.toList());
+
+        log.info("Found {} other bookmarks for room {}", roomBookmarks.size(), roomId);
+
+        // 7. Check if any bookmarked tenant is matched with current tenant
+        for (Bookmark otherBookmark : roomBookmarks) {
+            String otherTenantId = otherBookmark.getTenantId();
+
+            // Check if they are matched
+            boolean areMatched = tenantRepository.areTenantsMatched(tenantId, otherTenantId);
+
+            if (areMatched) {
+                log.info("Found matched tenant {} who also bookmarked room {}", otherTenantId, roomId);
+
+                // ✅ Create 3-way conversation
+                ConversationDetailResponse threeWayConversation = createThreeWayConversation(
+                        tenantId,
+                        otherTenantId,
+                        room.getLandlordId(),
+                        roomId
+                );
+
+                // Get matched tenant info
+                Tenant matchedTenant = tenantRepository.findById(otherTenantId).orElse(null);
+                String matchedTenantName = matchedTenant != null ? matchedTenant.getName() : "Unknown Tenant";
+
+                // Return response with 3-way conversation details
+                return BookmarkResponse.fromBookmarkWithThreeWayConversation(
+                        savedBookmark,
+                        threeWayConversation,
+                        otherTenantId,
+                        matchedTenantName
+                );
+            }
+        }
+
+        // No 3-way conversation created
         return BookmarkResponse.fromBookmark(savedBookmark);
     }
+    // ========================================
+// PRIVATE HELPER: CREATE 3-WAY CONVERSATION
+// ========================================
+    private ConversationDetailResponse createThreeWayConversation(
+            String tenant1Id,
+            String tenant2Id,
+            String landlordId,
+            String roomId
+    ) {
+        log.info("Creating 3-way conversation for tenants {} and {} with landlord {} for room {}",
+                tenant1Id, tenant2Id, landlordId, roomId);
 
+        // Sort participant IDs for consistent comparison
+        List<String> participantIds = List.of(tenant1Id, tenant2Id, landlordId);
+
+        // ✅ Check if conversation already exists
+        Optional<Conversation> existingConversation = tenantRepository.findConversationByParticipants(participantIds);
+
+        if (existingConversation.isPresent()) {
+            log.info("3-way conversation already exists: {}", existingConversation.get().getId());
+
+            // Return existing conversation
+            Conversation existing = existingConversation.get();
+            return ConversationDetailResponse.builder()
+                    .id(existing.getId())
+                    .participantIds(existing.getParticipantIds())
+                    .lastMessage(existing.getLastMessage())
+                    .lastMessageAt(existing.getLastMessageAt() != null ?
+                            existing.getLastMessageAt().toString() : null)
+                    .createdAt(existing.getCreatedAt() != null ?
+                            existing.getCreatedAt().toString() : null)
+                    .updatedAt(existing.getUpdatedAt() != null ?
+                            existing.getUpdatedAt().toString() : null)
+                    .build();
+        }
+
+        // ✅ Create NEW 3-way conversation
+        String conversationId = UUID.randomUUID().toString();
+        Conversation conversation = Conversation.builder()
+                .id(conversationId)
+                .participantIds(participantIds)
+                .lastMessage("Room viewing interest - 3-way conversation started")
+                .lastMessageAt(Timestamp.now())
+                .createdAt(Timestamp.now())
+                .updatedAt(Timestamp.now())
+                .build();
+
+        tenantRepository.saveConversation(conversation);
+
+        log.info("3-way conversation created successfully: {}", conversationId);
+
+        // ✅ Get room details for notification
+        Room room = tenantRepository.findRoomById(roomId).orElse(null);
+        String roomTitle = room != null ? room.getTitle() : "a room";
+        String roomImageUrl = room != null && room.getImageUrls() != null && !room.getImageUrls().isEmpty()
+                ? room.getImageUrls().get(0) : null;
+
+        // ✅ Get participant details
+        List<ThreeWayConversationNotification.ParticipantInfo> participants = new ArrayList<>();
+
+        // Tenant 1
+        Tenant tenant1 = tenantRepository.findById(tenant1Id).orElse(null);
+        if (tenant1 != null) {
+            participants.add(ThreeWayConversationNotification.ParticipantInfo.builder()
+                    .userId(tenant1Id)
+                    .name(tenant1.getName())
+                    .avatarUrl(tenant1.getAvatarUrl())
+                    .role("TENANT")
+                    .build());
+        }
+
+        // Tenant 2
+        Tenant tenant2 = tenantRepository.findById(tenant2Id).orElse(null);
+        if (tenant2 != null) {
+            participants.add(ThreeWayConversationNotification.ParticipantInfo.builder()
+                    .userId(tenant2Id)
+                    .name(tenant2.getName())
+                    .avatarUrl(tenant2.getAvatarUrl())
+                    .role("TENANT")
+                    .build());
+        }
+
+        // Landlord - Note: You need to add a method to get landlord from AllAuthUserRepository
+        allAuthUserRepository.findAccountById(landlordId).ifPresent(landlord -> participants.add(ThreeWayConversationNotification.ParticipantInfo.builder()
+                .userId(landlordId)
+                .name(landlord.getName())
+                .avatarUrl(landlord.getAvatarUrl())
+                .role("LANDLORD")
+                .build()));
+
+        // ✅ Send WebSocket notifications to all 3 participants
+        webSocketService.sendThreeWayConversationNotification(
+                conversationId,
+                roomId,
+                roomTitle,
+                roomImageUrl,
+                participantIds,
+                participants
+        );
+
+        // Return conversation details
+        return ConversationDetailResponse.builder()
+                .id(conversationId)
+                .participantIds(participantIds)
+                .lastMessage(conversation.getLastMessage())
+                .lastMessageAt(conversation.getLastMessageAt().toString())
+                .createdAt(conversation.getCreatedAt().toString())
+                .updatedAt(conversation.getUpdatedAt().toString())
+                .build();
+    }
     // ========================================
 // UNBOOKMARK ROOM
 // ========================================

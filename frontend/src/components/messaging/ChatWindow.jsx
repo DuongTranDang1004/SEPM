@@ -1,18 +1,15 @@
+// FE/src/components/messaging/ChatWindow.jsx
+
 import React, { useRef, useEffect } from 'react';
 import MessageBubble from './MessageBubble';
-import MessageInput from './MessageInput';
+import MessageInput from './MessageInput';  
 import { ArrowLeft, MoreVertical, Loader } from 'lucide-react';
 
-/**
- * Reusable chat window component
- * Displays messages and input for a conversation
- */
 function ChatWindow({
   conversation,
   messages,
   currentUserId,
   onSendMessage,
-  onAttachFile,
   onBack,
   isSending = false,
   isLoading = false,
@@ -20,7 +17,6 @@ function ChatWindow({
 }) {
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -37,9 +33,10 @@ function ChatWindow({
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    // ✅ CRITICAL FIX: Use h-full instead of flex-1 for popup mode
+    <div className={`${compact ? 'h-full' : 'flex-1'} flex flex-col`}>
       {/* Chat Header */}
-      <div className={`bg-white border-b border-gray-200 ${compact ? 'p-3' : 'p-4'} flex items-center justify-between`}>
+      <div className={`bg-white border-b border-gray-200 ${compact ? 'p-3' : 'p-4'} flex items-center justify-between flex-shrink-0`}>
         <div className="flex items-center gap-3">
           {/* Back Button (for compact view) */}
           {compact && onBack && (
@@ -99,13 +96,7 @@ function ChatWindow({
         ) : (
           <>
             {messages.map((msg, index) => {
-              // ✅ IMPORTANT: Verify this comparison matches your backend
               const isMyMessage = msg.senderId === currentUserId;
-              
-              // ✅ Debug log (remove in production)
-              if (process.env.NODE_ENV === 'development' && index === 0) {
-                console.log('Message senderId:', msg.senderId, 'Current userId:', currentUserId);
-              }
               
               return (
                 <MessageBubble
@@ -122,10 +113,9 @@ function ChatWindow({
         )}
       </div>
 
-      {/* Message Input */}
+      {/* ✅ Message Input - Fixed at bottom */}
       <MessageInput
         onSendMessage={onSendMessage}
-        onAttachFile={onAttachFile}
         isSending={isSending}
         compact={compact}
       />

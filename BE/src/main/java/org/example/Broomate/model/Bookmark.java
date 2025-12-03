@@ -18,4 +18,5 @@ public class Bookmark extends BaseModel {
     private String roomId;
 
     // Note: createdAt from BaseModel serves as "bookmarkedAt"
+    private String triggeredConversationId; // ID of 3-way conversation if created
 }

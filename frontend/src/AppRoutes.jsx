@@ -5,81 +5,61 @@ import SignupPage from './pages/auth/SignupPage';
 import DashboardLayout from './components/layout/DashboardLayout';
 import TenantDashboard from './pages/tenant/TenantDashboard';
 import LandlordDashboard from './pages/landlord/LandlordDashboard';
+import UploadRoomPage from './pages/landlord/UploadRoomPage';
 import MessagePage from './pages/shared/MessagesPage';
-import AccountPage from './pages/shared/AccountPage'; // ✅ Unified dynamic account page
+import AccountPage from './pages/shared/AccountPage';
 import RoomDetailPage from './pages/shared/RoomDetailPage';
+import FindRoomsPage from './pages/shared/FindRoomsPage'; // ✅ NOW SHARED
 import MatchPage from './pages/tenant/MatchPage';
-import FindRoomsPage from './pages/tenant/FindRoomsPage';
 import FindRoommatesPage from './pages/tenant/FindRoommatesPage';
-import BookmarksPage from './pages/tenant/BookmarksPage'; // ✅ NEW: Real BookmarksPage with API
-
-// Placeholder components for future development
-
-const UploadRoomPage = () => (
-  <div className="h-full flex items-center justify-center p-8">
-    <div className="text-center">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">➕ Upload Room</h2>
-      <p className="text-gray-600">Create a new room listing (Coming Soon)</p>
-    </div>
-  </div>
-);
-
-const MyRoomsPage = () => (
-  <div className="h-full flex items-center justify-center p-8">
-    <div className="text-center">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">🏘️ My Rooms</h2>
-      <p className="text-gray-600">Manage your published listings (Coming Soon)</p>
-    </div>
-  </div>
-);
-
-const BrowseRoomsPage = () => (
-  <div className="h-full flex items-center justify-center p-8">
-    <div className="text-center">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">🔍 Browse Rooms</h2>
-      <p className="text-gray-600">View rooms from other landlords (Coming Soon)</p>
-    </div>
-  </div>
-);
+import BookmarksPage from './pages/tenant/BookmarksPage';
+import MyRoomsPage from './pages/landlord/MyRoomsPage';
+import { MessageProvider } from './contexts/MessageContext'; // ✅ Import
 
 function AppRoutes() {
   return (
+    <MessageProvider>
     <Routes>
-      {/* Auth routes */}
+      {/* Auth routes - NO LAYOUT */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       
-      {/* Dashboard routes with layout */}
+      {/* Dashboard routes - WITH LAYOUT */}
       <Route path="/dashboard" element={<DashboardLayout />}>
         {/* Default redirect to tenant dashboard */}
         <Route index element={<Navigate to="/dashboard/tenant" replace />} />
         
-        {/* Tenant routes */}
+        {/* ===== TENANT ROUTES ===== */}
         <Route path="tenant" element={<TenantDashboard />} />
-        <Route path="tenant/find-rooms" element={<FindRoomsPage />} />
+        <Route path="tenant/find-rooms" element={<FindRoomsPage />} /> {/* ✅ SHARED */}
         <Route path="tenant/find-roommates" element={<FindRoommatesPage />} />
-        <Route path="tenant/bookmarks" element={<BookmarksPage />} /> {/* ✅ UPDATED: Now uses real component */}
+        <Route path="tenant/bookmarks" element={<BookmarksPage />} />
         <Route path="tenant/match" element={<MatchPage />} />
         <Route path="tenant/room/:roomId" element={<RoomDetailPage />} />
         <Route path="tenant/account" element={<AccountPage />} />
         
-        {/* Landlord routes */}
+        {/* ===== LANDLORD ROUTES ===== */}
         <Route path="landlord" element={<LandlordDashboard />} />
         <Route path="landlord/upload-room" element={<UploadRoomPage />} />
         <Route path="landlord/my-rooms" element={<MyRoomsPage />} />
-        <Route path="landlord/browse-rooms" element={<BrowseRoomsPage />} />
+        <Route path="landlord/browse-rooms" element={<FindRoomsPage />} /> {/* ✅ SHARED */}
         <Route path="landlord/room/:roomId" element={<RoomDetailPage />} />
         <Route path="landlord/edit-room/:roomId" element={<UploadRoomPage />} />
         <Route path="landlord/account" element={<AccountPage />} />
         
-        {/* Shared routes (no sidebar) */}
+        {/* ===== SHARED ROUTES ===== */}
         <Route path="messages" element={<MessagePage />} />
       </Route>
       
-      {/* Default route */}
+      {/* ===== STANDALONE ROUTES (outside dashboard layout) ===== */}
+      <Route path="/rooms/:roomId" element={<RoomDetailPage />} />
+      <Route path="/landlord/:landlordId" element={<LandlordDashboard />} />
+      
+      {/* Default & catch-all routes */}
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </MessageProvider>
   );
 }
 

@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -56,8 +57,7 @@ public class LandlordService {
             Landlord landlord = landlordRepository.findById(landlordId)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND,
-                            "Landlord not found with ID: " + landlordId
-                    ));
+                            "Landlord not found with ID: " + landlordId));
 
             // 2. Upload ALL file types in PARALLEL
             log.info("Uploading files to Supabase Storage in parallel...");
@@ -108,7 +108,8 @@ public class LandlordService {
             List<String> documentUrls = documentsFuture.join();
 
             // Track all uploaded URLs for rollback
-            if (thumbnailUrl != null) uploadedUrls.add(thumbnailUrl);
+            if (thumbnailUrl != null)
+                uploadedUrls.add(thumbnailUrl);
             uploadedUrls.addAll(imageUrls);
             uploadedUrls.addAll(videoUrls);
             uploadedUrls.addAll(documentUrls);
@@ -156,11 +157,9 @@ public class LandlordService {
             }
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed to create room: " + e.getMessage()
-            );
+                    "Failed to create room: " + e.getMessage());
         }
     }
-
 
     // ========================================
     // UPDATE ROOM (UNIFIED - INFO + MEDIA)
@@ -184,8 +183,7 @@ public class LandlordService {
             Room room = landlordRepository.findRoomById(roomId)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND,
-                            "Room not found with ID: " + roomId
-                    ));
+                            "Room not found with ID: " + roomId));
 
             // 2. Verify ownership
             if (!room.getLandlordId().equals(landlordId)) {
@@ -235,7 +233,8 @@ public class LandlordService {
 
             CompletableFuture<List<String>> imagesFuture = CompletableFuture.supplyAsync(() -> {
                 try {
-                    List<String> currentImages = new ArrayList<>(room.getImageUrls() != null ? room.getImageUrls() : new ArrayList<>());
+                    List<String> currentImages = new ArrayList<>(
+                            room.getImageUrls() != null ? room.getImageUrls() : new ArrayList<>());
 
                     // Remove specified images
                     if (request.getImagesToRemove() != null && !request.getImagesToRemove().isEmpty()) {
@@ -257,7 +256,8 @@ public class LandlordService {
 
             CompletableFuture<List<String>> videosFuture = CompletableFuture.supplyAsync(() -> {
                 try {
-                    List<String> currentVideos = new ArrayList<>(room.getVideoUrls() != null ? room.getVideoUrls() : new ArrayList<>());
+                    List<String> currentVideos = new ArrayList<>(
+                            room.getVideoUrls() != null ? room.getVideoUrls() : new ArrayList<>());
 
                     if (request.getVideosToRemove() != null && !request.getVideosToRemove().isEmpty()) {
                         filesToDelete.addAll(request.getVideosToRemove());
@@ -277,7 +277,8 @@ public class LandlordService {
 
             CompletableFuture<List<String>> documentsFuture = CompletableFuture.supplyAsync(() -> {
                 try {
-                    List<String> currentDocuments = new ArrayList<>(room.getDocumentUrls() != null ? room.getDocumentUrls() : new ArrayList<>());
+                    List<String> currentDocuments = new ArrayList<>(
+                            room.getDocumentUrls() != null ? room.getDocumentUrls() : new ArrayList<>());
 
                     if (request.getDocumentsToRemove() != null && !request.getDocumentsToRemove().isEmpty()) {
                         filesToDelete.addAll(request.getDocumentsToRemove());
@@ -330,14 +331,13 @@ public class LandlordService {
             }
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed to update room: " + e.getMessage()
-            );
+                    "Failed to update room: " + e.getMessage());
         }
     }
 
     // ========================================
-// UPDATE LANDLORD PROFILE (WITH AVATAR)
-// ========================================
+    // UPDATE LANDLORD PROFILE (WITH AVATAR)
+    // ========================================
     public LandlordProfileResponse updateProfile(
             String landlordId,
             UpdateLandlordProfileRequest request,
@@ -348,8 +348,7 @@ public class LandlordService {
         Landlord landlord = landlordRepository.findById(landlordId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Landlord not found with ID: " + landlordId
-                ));
+                        "Landlord not found with ID: " + landlordId));
 
         String oldAvatarUrl = landlord.getAvatarUrl();
         String newAvatarUrl = oldAvatarUrl;
@@ -400,10 +399,10 @@ public class LandlordService {
 
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed to update profile: " + e.getMessage()
-            );
+                    "Failed to update profile: " + e.getMessage());
         }
     }
+
     // ========================================
     // GET LANDLORD PROFILE
     // ========================================
@@ -413,9 +412,32 @@ public class LandlordService {
         Landlord landlord = landlordRepository.findById(landlordId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Landlord not found with ID: " + landlordId
-                ));
+                        "Landlord not found with ID: " + landlordId));
 
         return LandlordProfileResponse.fromLandlord(landlord);
+    }
+
+    /**
+     * Get all rooms owned by a specific landlord
+     * 
+     * @param landlordId - The landlord's user ID
+     * @return List of room detail responses
+     */
+    public List<RoomDetailResponse> getMyRooms(String landlordId) {
+        // Fetch all rooms where landlordId matches
+        List<Room> rooms = landlordRepository.findRoomsByLandlordUserId(landlordId);
+
+        // Convert to response DTOs using the existing fromRoom() method
+        return rooms.stream()
+                .map(RoomDetailResponse::fromRoom) // ✅ Simplest approach
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Helper method to convert Room entity to RoomDetailResponse
+     * (You might already have this method - if so, just use it)
+     */
+    private RoomDetailResponse convertRoomToDetailResponse(Room room) {
+        return RoomDetailResponse.fromRoom(room); // ✅ Use the existing static method
     }
 }

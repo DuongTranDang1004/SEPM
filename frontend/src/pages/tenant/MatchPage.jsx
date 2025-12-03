@@ -10,6 +10,23 @@ function MatchPage() {
   const matchData = location.state || {};
   const { conversationId, tenantA, tenantB, compatibility } = matchData;
 
+  // Add at top of component
+  if (!matchData || !tenantA || !tenantB) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Match data not found</p>
+          <button
+            onClick={() => navigate('/dashboard/tenant/find-roommates')}
+            className="px-6 py-3 bg-purple-600 text-white rounded-lg"
+          >
+            Back to Swiping
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const handleStartChat = () => {
     if (conversationId) {
       navigate('/dashboard/messages', { 
