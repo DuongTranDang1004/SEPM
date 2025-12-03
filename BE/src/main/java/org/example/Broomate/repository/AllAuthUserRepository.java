@@ -230,4 +230,27 @@ public class AllAuthUserRepository {
             throw new RuntimeException("Failed to update account", e);
         }
     }
+    /**
+     * Find all messages in a conversation
+     */
+    public List<Message> findMessagesByConversationId(String conversationId) {
+        try {
+            List<QueryDocumentSnapshot> documents = firestore.collection(MESSAGES_COLLECTION)
+                    .whereEqualTo("conversationId", conversationId)
+                    .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.ASCENDING)
+                    .get()
+                    .get()
+                    .getDocuments();
+
+            List<Message> messages = new ArrayList<>();
+            for (QueryDocumentSnapshot document : documents) {
+                messages.add(document.toObject(Message.class));
+            }
+
+            return messages;
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error finding messages for conversation: {}", conversationId, e);
+            throw new RuntimeException("Failed to find messages", e);
+        }
+    }
 }

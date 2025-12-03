@@ -14,9 +14,11 @@ import MatchPage from './pages/tenant/MatchPage';
 import FindRoommatesPage from './pages/tenant/FindRoommatesPage';
 import BookmarksPage from './pages/tenant/BookmarksPage';
 import MyRoomsPage from './pages/landlord/MyRoomsPage';
+import { MessageProvider } from './contexts/MessageContext'; // ✅ Import
 
 function AppRoutes() {
   return (
+    <MessageProvider>
     <Routes>
       {/* Auth routes - NO LAYOUT */}
       <Route path="/login" element={<LoginPage />} />
@@ -57,6 +59,7 @@ function AppRoutes() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </MessageProvider>
   );
 }
 

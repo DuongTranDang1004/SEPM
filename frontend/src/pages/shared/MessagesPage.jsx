@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+// FE/src/pages/MessagesPage.jsx
+
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Loader } from 'lucide-react';
 import ConversationList from '../../components/messaging/ConversationList';
 import ChatWindow from '../../components/messaging/ChatWindow';
 import messageService from '../../services/messageService';
+import websocketService from '../../services/websocketService';
+import { useMessages } from '../../contexts/MessageContext'; // ✅ Import
 
 function MessagesPage() {
   const navigate = useNavigate();
@@ -16,8 +20,115 @@ function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
+  // ✅ Get decrementUnread function
+  const { decrementUnread } = useMessages();
+
+  const { markConversationAsRead } = useMessages();
+
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const currentUserId = user.userId;
+
+  // ✅ Use ref to track selected conversation for WebSocket callback
+  const selectedConversationRef = useRef(null);
+
+  // ✅ Update ref whenever selectedConversation changes
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+  }, [selectedConversation]);
+
+  // ✅ Connect to WebSocket on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    let unsubscribeMessages = null;
+    let unsubscribeSwipes = null;
+    
+    if (token && currentUserId) {
+      console.log('🔌 Connecting WebSocket for user:', currentUserId);
+      
+      websocketService.connect(token, currentUserId)
+        .then(() => {
+          console.log('✅ WebSocket connected in MessagesPage');
+          
+          // ✅ Register message handler
+          unsubscribeMessages = websocketService.onNewMessage((payload) => {
+            console.log('💬 📥 Message received in MessagesPage:', payload);
+            
+            const currentConv = selectedConversationRef.current;
+            const currentConvId = currentConv?.id || currentConv?.conversationId;
+            
+            console.log('🔍 Current conversation ID:', currentConvId);
+            console.log('📨 Incoming message conversation ID:', payload.conversationId);
+            
+            if (payload.conversationId === currentConvId) {
+              console.log('✅ Adding message to current chat window');
+              setMessages(prev => {
+                const exists = prev.some(msg => msg.id === payload.messageId);
+                if (exists) {
+                  console.log('⚠️ Message already exists, skipping duplicate');
+                  return prev;
+                }
+                
+                return [...prev, {
+                  id: payload.messageId,
+                  conversationId: payload.conversationId,
+                  senderId: payload.senderId,
+                  content: payload.content,
+                  mediaUrls: payload.mediaUrls || [],
+                  createdAt: payload.timestamp || new Date().toISOString(),
+                }];
+              });
+            } else {
+              console.log('⏭️ Message is for different conversation, updating sidebar only');
+            }
+            
+            setConversations(prev => {
+              const updated = prev.map(conv => {
+                const convId = conv.id || conv.conversationId;
+                if (convId === payload.conversationId) {
+                  return {
+                    ...conv,
+                    lastMessage: payload.content,
+                    lastMessageAt: payload.timestamp,
+                    unreadCount: convId === currentConvId 
+                      ? 0 
+                      : (conv.unreadCount || 0) + 1
+                  };
+                }
+                return conv;
+              });
+
+              return updated.sort((a, b) => {
+                const timeA = new Date(a.lastMessageAt || 0);
+                const timeB = new Date(b.lastMessageAt || 0);
+                return timeB - timeA;
+              });
+            });
+          });
+
+          // ✅ Register swipe handler
+          unsubscribeSwipes = websocketService.onNewSwipe((payload) => {
+            console.log('👍 📥 Swipe received in MessagesPage:', payload);
+            
+            if (payload.isMatch) {
+              alert(`🎉 It's a match with ${payload.swiperName}!`);
+              fetchConversations();
+            }
+          });
+        })
+        .catch(error => {
+          console.error('❌ Failed to connect WebSocket:', error);
+        });
+    }
+    
+    // ✅ Cleanup on unmount
+    return () => {
+      console.log('🧹 Cleaning up WebSocket subscriptions');
+      if (unsubscribeMessages) unsubscribeMessages();
+      if (unsubscribeSwipes) unsubscribeSwipes();
+    };
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
 
   useEffect(() => {
     fetchConversations();
@@ -26,8 +137,6 @@ function MessagesPage() {
   useEffect(() => {
     if (location.state?.conversationId && conversations.length > 0) {
       const convId = location.state.conversationId;
-
-      // Handle both 'conversationId' and 'id' field names
       const conv = conversations.find(c => 
         c.conversationId === convId || c.id === convId
       );
@@ -53,15 +162,16 @@ function MessagesPage() {
   };
 
   const handleSelectConversation = async (conversation) => {
-    // Handle both 'conversationId' and 'id' field names
     const convId = conversation?.conversationId || conversation?.id;
     
-    // Validate conversation ID exists
     if (!convId) {
-      console.error('❌ ERROR: No conversationId or id found in conversation object:', conversation);
+      console.error('❌ ERROR: No conversationId found');
       alert('Cannot load conversation: Missing conversation ID');
       return;
     }
+
+    // ✅ Check if conversation has unread messages
+    const hasUnread = (conversation.unreadCount || 0) > 0;
 
     setSelectedConversation(conversation);
 
@@ -70,27 +180,36 @@ function MessagesPage() {
       console.log('✅ Messages loaded:', data);
       setMessages(data.messages || []);
       
-      // Mark as read
       await messageService.markAsRead(convId);
+      
+      // ✅ Mark conversation as read in global context
+      if (hasUnread) {
+        markConversationAsRead(convId);
+      }
+      
+      // Reset local unread count
+      setConversations(prev => prev.map(conv => {
+        const cId = conv.id || conv.conversationId;
+        if (cId === convId) {
+          return { ...conv, unreadCount: 0 };
+        }
+        return conv;
+      }));
     } catch (error) {
       console.error('❌ Error fetching messages:', error);
-      console.error('Error details:', error.response?.data || error.message);
       setMessages([]);
       alert('Failed to load messages. Please try again.');
     }
   };
 
-  // ✅ UPDATED: Now accepts file parameter like MessengerPopup
   const handleSendMessage = async (content, file = null) => {
     if (!selectedConversation) {
       console.error('❌ No conversation selected');
       return;
     }
 
-    // Handle both 'conversationId' and 'id' field names
     const convId = selectedConversation?.conversationId || selectedConversation?.id;
     
-    // Validate conversation ID before sending
     if (!convId) {
       console.error('❌ Selected conversation has no ID:', selectedConversation);
       alert('Cannot send message: Invalid conversation');
@@ -107,11 +226,23 @@ function MessagesPage() {
     setIsSending(true);
 
     try {
-      // ✅ Use same service method as MessengerPopup with file support
       const newMessage = await messageService.sendMessage(convId, content, file);
 
       console.log('✅ Message sent:', newMessage);
       setMessages(prev => [...prev, newMessage]);
+      
+      // Update conversation list
+      setConversations(prev => prev.map(conv => {
+        const cId = conv.id || conv.conversationId;
+        if (cId === convId) {
+          return {
+            ...conv,
+            lastMessage: content || '📎 Attachment',
+            lastMessageAt: newMessage.createdAt
+          };
+        }
+        return conv;
+      }));
     } catch (error) {
       console.error('❌ Error sending message:', error);
       console.error('Error details:', error.response?.data || error.message);
@@ -158,7 +289,7 @@ function MessagesPage() {
         />
       </div>
 
-      {/* Chat Window - Now with file upload support via MessageInput */}
+      {/* Chat Window */}
       <ChatWindow
         conversation={selectedConversation}
         messages={messages}

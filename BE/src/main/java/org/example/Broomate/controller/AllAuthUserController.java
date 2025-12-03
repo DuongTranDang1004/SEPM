@@ -14,10 +14,7 @@ import org.example.Broomate.config.CustomUserDetails;
 import org.example.Broomate.dto.request.allAuthUser.ChangePasswordRequest;
 import org.example.Broomate.dto.request.allAuthUser.SendMessageRequest;
 import org.example.Broomate.dto.response.*;
-import org.example.Broomate.dto.response.allAuthUser.ConversationListResponse;
-import org.example.Broomate.dto.response.allAuthUser.MessageDetailResponse;
-import org.example.Broomate.dto.response.allAuthUser.RoomListResponse;
-import org.example.Broomate.dto.response.allAuthUser.RoomDetailResponse;
+import org.example.Broomate.dto.response.allAuthUser.*;
 import org.example.Broomate.service.AllAuthUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -204,6 +201,34 @@ public class AllAuthUserController {
         String userId = userDetails.getUserId();
 
         HTTPMessageResponse response = allAuthUserService.activateProfile(userId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 1.5. GET CONVERSATION DETAIL WITH MESSAGES
+     */
+    /**
+     * 1.5. GET CONVERSATION DETAIL WITH MESSAGES
+     */
+    @Operation(summary = "Get conversation detail with messages",
+            description = "Retrieve detailed information about a specific conversation including all messages")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Conversation details retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ConversationDetailResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Not a conversation participant",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Conversation not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/conversations/{conversationId}")
+    public ResponseEntity<ConversationDetailResponse> getConversationDetail(
+            @PathVariable String conversationId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        String userId = userDetails.getUserId();
+        ConversationDetailResponse response = allAuthUserService.getConversationDetail(conversationId, userId);
         return ResponseEntity.ok(response);
     }
 }

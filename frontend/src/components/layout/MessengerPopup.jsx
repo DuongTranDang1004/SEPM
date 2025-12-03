@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+// FE/src/components/navigation/MessengerPopup.jsx
+
+import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import ConversationList from '../messaging/ConversationList';
 import ChatWindow from '../messaging/ChatWindow';
 import messageService from '../../services/messageService';
+import websocketService from '../../services/websocketService';
+import { useMessages } from '../../contexts/MessageContext';
 
-/**
- * Floating messenger popup (Facebook-style)
- * Uses shared messaging components and services
- */
 function MessengerPopup({ isOpen, onClose }) {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -16,45 +16,140 @@ function MessengerPopup({ isOpen, onClose }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
-  // Get current user - ✅ FIXED: Use userId instead of id
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const currentUserId = user.userId;  // ✅ Correct property
+  const { markConversationAsRead } = useMessages();
 
-  // Fetch conversations when popup opens
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const currentUserId = user.userId;
+
+  const selectedConversationRef = useRef(null);
+
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+  }, [selectedConversation]);
+
+  // ✅ WebSocket connection
+  useEffect(() => {
+    if (!isOpen || !currentUserId) return;
+
+    const token = localStorage.getItem('token');
+    let unsubscribeMessages = null;
+    let unsubscribeSwipes = null;
+
+    console.log('🔌 MessengerPopup: Connecting WebSocket');
+
+    websocketService.connect(token, currentUserId)
+      .then(() => {
+        console.log('✅ WebSocket connected in MessengerPopup');
+
+        unsubscribeMessages = websocketService.onNewMessage((payload) => {
+          console.log('💬 Popup received new message:', payload);
+
+          const currentConv = selectedConversationRef.current;
+          const currentConvId = currentConv?.id || currentConv?.conversationId;
+
+          if (payload.conversationId === currentConvId) {
+            setMessages(prev => {
+              const exists = prev.some(msg => msg.id === payload.messageId);
+              if (exists) {
+                console.log('⚠️ Message already exists, skipping duplicate');
+                return prev;
+              }
+
+              return [...prev, {
+                id: payload.messageId,
+                conversationId: payload.conversationId,
+                senderId: payload.senderId,
+                content: payload.content,
+                mediaUrls: payload.mediaUrls || [],
+                createdAt: payload.timestamp || new Date().toISOString(),
+              }];
+            });
+          }
+
+          // ✅ Update conversation list in real-time
+          setConversations(prev => {
+            const updated = prev.map(conv => {
+              const convId = conv.id || conv.conversationId;
+              if (convId === payload.conversationId) {
+                return {
+                  ...conv,
+                  lastMessage: payload.content,
+                  lastMessageAt: payload.timestamp,
+                  unreadCount: convId === currentConvId 
+                    ? 0 
+                    : (conv.unreadCount || 0) + 1
+                };
+              }
+              return conv;
+            });
+
+            return updated.sort((a, b) => {
+              const timeA = new Date(a.lastMessageAt || 0);
+              const timeB = new Date(b.lastMessageAt || 0);
+              return timeB - timeA;
+            });
+          });
+        });
+
+        unsubscribeSwipes = websocketService.onNewSwipe((payload) => {
+          console.log('👍 Popup received swipe notification:', payload);
+          
+          if (payload.isMatch) {
+            alert(`🎉 It's a match with ${payload.swiperName}!`);
+            fetchConversations();
+          }
+        });
+      })
+      .catch(error => {
+        console.error('❌ Failed to connect WebSocket:', error);
+      });
+
+    return () => {
+      console.log('🧹 MessengerPopup: Cleaning up WebSocket subscriptions');
+      if (unsubscribeMessages) unsubscribeMessages();
+      if (unsubscribeSwipes) unsubscribeSwipes();
+    };
+  }, [isOpen, currentUserId]);
+
+  // ✅ CRITICAL FIX: Fetch conversations EVERY TIME popup opens
   useEffect(() => {
     if (isOpen) {
+      console.log('🔄 MessengerPopup opened - fetching fresh conversations');
       fetchConversations();
+    } else {
+      // ✅ Reset state when popup closes
+      console.log('🧹 MessengerPopup closed - resetting state');
+      setSelectedConversation(null);
+      setMessages([]);
+      setSearchQuery('');
     }
   }, [isOpen]);
 
-  // Fetch conversations using service
   const fetchConversations = async () => {
     try {
+      console.log('📥 MessengerPopup - Fetching conversations...');
       const data = await messageService.getAllConversations();
       console.log('💬 MessengerPopup - Fetched conversations:', data.conversations?.length);
       
-      // ✅ DEBUG: Log first conversation structure
       if (data.conversations?.length > 0) {
         console.log('🔍 First conversation structure:', data.conversations[0]);
-        console.log('🔑 First conversation ID:', data.conversations[0].conversationId || data.conversations[0].id);
+        console.log('📊 Unread counts:', data.conversations.map(c => ({
+          name: c.otherParticipantName,
+          unreadCount: c.unreadCount
+        })));
       }
       
       setConversations(data.conversations || []);
     } catch (error) {
-      console.error('Error fetching conversations:', error);
+      console.error('❌ Error fetching conversations:', error);
     }
   };
 
-  // Select conversation and fetch messages
   const handleSelectConversation = async (conversation) => {
     console.log('🎯 MessengerPopup - Selected conversation:', conversation);
     
-    setSelectedConversation(conversation);
-    setIsLoading(true);
-
-    // ✅ Handle both 'conversationId' and 'id' field names
     const convId = conversation?.conversationId || conversation?.id;
-    console.log('🔑 MessengerPopup - Extracted conversation ID:', convId);
+    const hasUnread = (conversation.unreadCount || 0) > 0;
     
     if (!convId) {
       console.error('❌ No conversation ID found:', conversation);
@@ -63,32 +158,43 @@ function MessengerPopup({ isOpen, onClose }) {
       return;
     }
 
+    setSelectedConversation(conversation);
+    setIsLoading(true);
+
     try {
       console.log('📥 MessengerPopup - Fetching messages for:', convId);
       const data = await messageService.getMessages(convId);
       console.log('✅ MessengerPopup - Messages loaded:', data.messages?.length);
       setMessages(data.messages || []);
       
-      // ✅ Mark messages as read when conversation is opened
       try {
         await messageService.markAsRead(convId);
+        
+        // ✅ Mark conversation as read in global context
+        if (hasUnread) {
+          console.log('📉 Marking conversation as read:', convId);
+          markConversationAsRead(convId);
+        }
+        
+        // ✅ Update local state
+        setConversations(prev => prev.map(conv => {
+          const cId = conv.id || conv.conversationId;
+          if (cId === convId) {
+            return { ...conv, unreadCount: 0 };
+          }
+          return conv;
+        }));
       } catch (readError) {
         console.warn('⚠️ Could not mark as read:', readError);
-        // Non-critical, continue anyway
       }
     } catch (error) {
       console.error('❌ MessengerPopup - Error fetching messages:', error);
-      console.error('Error details:', error.response?.data || error.message);
-      
-      // ✅ Start with empty messages (user can still send new ones)
       setMessages([]);
-      console.warn('⚠️ Starting with empty conversation');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ✅ UPDATED - Send message with optional file
   const handleSendMessage = async (content, file = null) => {
     if (!selectedConversation) {
       console.error('❌ No conversation selected');
@@ -113,32 +219,35 @@ function MessengerPopup({ isOpen, onClose }) {
     setIsSending(true);
 
     try {
-      // ✅ Call updated service with file support
       const newMessage = await messageService.sendMessage(convId, content, file);
       
       console.log('✅ Message sent successfully:', newMessage);
       setMessages(prev => [...prev, newMessage]);
+      
+      setConversations(prev => prev.map(conv => {
+        const cId = conv.id || conv.conversationId;
+        if (cId === convId) {
+          return {
+            ...conv,
+            lastMessage: content || '📎 Attachment',
+            lastMessageAt: newMessage.createdAt
+          };
+        }
+        return conv;
+      }));
     } catch (error) {
       console.error('❌ Error sending message:', error);
-      console.error('Error details:', error.response?.data || error.message);
       alert('Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
     }
   };
 
-  // Handle file attachment (placeholder)
-  const handleAttachFile = () => {
-    alert('File upload coming soon! Use the full Messages page for file uploads.');
-  };
-
-  // Go back to conversation list
   const handleBack = () => {
     setSelectedConversation(null);
     setMessages([]);
   };
 
-  // Filter conversations
   const filteredConversations = conversations.filter(conv =>
     conv.otherParticipantName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -154,7 +263,7 @@ function MessengerPopup({ isOpen, onClose }) {
       />
 
       {/* Messenger Popup */}
-      <div className="fixed bottom-0 right-6 w-96 h-[600px] bg-white rounded-t-2xl shadow-2xl z-50 flex flex-col">
+      <div className="fixed bottom-0 right-6 w-96 h-[600px] bg-white rounded-t-2xl shadow-2xl z-50 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white px-4 py-3 rounded-t-2xl flex items-center justify-between flex-shrink-0">
           <h3 className="font-semibold text-lg">Messages</h3>
@@ -167,28 +276,29 @@ function MessengerPopup({ isOpen, onClose }) {
         </div>
 
         {/* Content */}
-        {!selectedConversation ? (
-          <ConversationList
-            conversations={filteredConversations}
-            selectedConversation={selectedConversation}
-            onSelectConversation={handleSelectConversation}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            compact={true}
-          />
-        ) : (
-          <ChatWindow
-            conversation={selectedConversation}
-            messages={messages}
-            currentUserId={currentUserId}
-            onSendMessage={handleSendMessage}
-            onAttachFile={handleAttachFile}
-            onBack={handleBack}
-            isSending={isSending}
-            isLoading={isLoading}
-            compact={true}
-          />
-        )}
+        <div className="flex-1 overflow-hidden">
+          {!selectedConversation ? (
+            <ConversationList
+              conversations={filteredConversations}
+              selectedConversation={selectedConversation}
+              onSelectConversation={handleSelectConversation}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              compact={true}
+            />
+          ) : (
+            <ChatWindow
+              conversation={selectedConversation}
+              messages={messages}
+              currentUserId={currentUserId}
+              onSendMessage={handleSendMessage}
+              onBack={handleBack}
+              isSending={isSending}
+              isLoading={isLoading}
+              compact={true}
+            />
+          )}
+        </div>
       </div>
     </>
   );

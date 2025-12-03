@@ -39,6 +39,8 @@ public class SecurityConfig {
                         // Public endpoints - no authentication required
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/api/rooms",              // ✅ From Duong_Messages
+                                "/api/rooms/**",           // ✅ From Duong_Messages
                                 "/api/user/rooms",
                                 "/api/user/rooms/**",
                                 "/swagger-ui/**",
@@ -46,7 +48,8 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/api-docs/**",
                                 "/swagger-resources/**",
-                                "/webjars/**")
+                                "/webjars/**",
+                                "/ws/**")                  // ✅ WebSocket from Duong_Messages
                         .permitAll()
 
                         // ✅ LANDLORD endpoints - require LANDLORD authority
@@ -58,7 +61,7 @@ public class SecurityConfig {
                         // ✅ USER endpoints - require either LANDLORD or TENANT authority
                         .requestMatchers("/api/user/**").hasAnyAuthority("LANDLORD", "TENANT")
 
-                        // Everything else requires authentication
+                        // Everything else requires authentication (MUST BE LAST)
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);

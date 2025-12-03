@@ -1,20 +1,15 @@
-// src/components/messaging/ChatWindow.jsx
+// FE/src/components/messaging/ChatWindow.jsx
 
 import React, { useRef, useEffect } from 'react';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';  
 import { ArrowLeft, MoreVertical, Loader } from 'lucide-react';
 
-/**
- * Reusable chat window component
- * Displays messages and input for a conversation
- */
 function ChatWindow({
   conversation,
   messages,
   currentUserId,
-  onSendMessage,     // ✅ NOW: (content, file) => Promise
-  // onAttachFile,   // ❌ REMOVE - No longer needed
+  onSendMessage,
   onBack,
   isSending = false,
   isLoading = false,
@@ -22,7 +17,6 @@ function ChatWindow({
 }) {
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -39,9 +33,10 @@ function ChatWindow({
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    // ✅ CRITICAL FIX: Use h-full instead of flex-1 for popup mode
+    <div className={`${compact ? 'h-full' : 'flex-1'} flex flex-col`}>
       {/* Chat Header */}
-      <div className={`bg-white border-b border-gray-200 ${compact ? 'p-3' : 'p-4'} flex items-center justify-between`}>
+      <div className={`bg-white border-b border-gray-200 ${compact ? 'p-3' : 'p-4'} flex items-center justify-between flex-shrink-0`}>
         <div className="flex items-center gap-3">
           {/* Back Button (for compact view) */}
           {compact && onBack && (
@@ -118,9 +113,9 @@ function ChatWindow({
         )}
       </div>
 
-      {/* ✅ Message Input - Now handles files internally */}
+      {/* ✅ Message Input - Fixed at bottom */}
       <MessageInput
-        onSendMessage={onSendMessage}  // ✅ Passes (content, file) signature
+        onSendMessage={onSendMessage}
         isSending={isSending}
         compact={compact}
       />
