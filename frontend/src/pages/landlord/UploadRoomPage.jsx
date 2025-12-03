@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Upload, X, ChevronLeft, ChevronRight, FileText, Image as ImageIcon, Video as VideoIcon } from "lucide-react";
 import landlordService from "../../services/landlordService";
 import Confetti from "react-confetti";
+import aiService from "../../services/aiService"; // ✅ ADD THIS
+import ImageVerificationModal from "../../components/landlord/ImageVerificationModal"; // ✅ ADD THIS
 
 const FALLBACK_IMG = "https://placehold.co/400x300/3B82F6/FFFFFF?text=No+Image";
 
@@ -35,6 +37,12 @@ export default function UploadRoomPage() {
   const [images, setImages] = useState([]);
   const [videos, setVideos] = useState([]);
   const [documents, setDocuments] = useState([]);
+
+    // ✅ ADD: Image verification state
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationResults, setVerificationResults] = useState([]);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [pendingImages, setPendingImages] = useState([]);
 
   // UI state
   const [submitted, setSubmitted] = useState(false);
@@ -69,20 +77,101 @@ export default function UploadRoomPage() {
   };
 
   /* -------- media: add file ---------- */
+  /* ✅ NEW: Verify images before adding */
+  const verifyImages = async (files) => {
+    const fileArray = Array.from(files);
+    
+    // Check total count
+    if (images.length + fileArray.length > 3) {
+      alert('Maximum 3 images allowed.');
+      return;
+    }
+
+    setIsVerifying(true);
+    setPendingImages(fileArray);
+    setShowVerificationModal(true);
+
+    // Initialize results with "verifying" status
+    const initialResults = fileArray.map(file => ({
+      file,
+      status: 'verifying',
+      isOriginal: null,
+      reason: null,
+      stolen_source: null
+    }));
+    setVerificationResults(initialResults);
+
+    // Verify each image
+    const results = await Promise.all(
+      fileArray.map(async (file) => {
+        try {
+          console.log(`🔍 Verifying image: ${file.name}`);
+          const result = await aiService.verifyImage(file);
+          console.log(`✅ Verification result for ${file.name}:`, result);
+          
+          return {
+            file,
+            status: 'complete',
+            isOriginal: result.isOriginal,
+            reason: result.reason,
+            stolen_check: result.stolen_check,
+            ai_check: result.ai_check,
+            stolen_source: result.stolen_source
+          };
+        } catch (error) {
+          console.error(`❌ Failed to verify ${file.name}:`, error);
+          
+          // ✅ If verification service fails, allow the image (fail open)
+          return {
+            file,
+            status: 'complete',
+            isOriginal: true,
+            reason: 'Verification service unavailable - image allowed',
+            stolen_check: false,
+            ai_check: false,
+            stolen_source: null
+          };
+        }
+      })
+    );
+
+    setVerificationResults(results);
+    setIsVerifying(false);
+  };
+
+  /* ✅ UPDATE: Handle verification results */
+  const handleVerificationProceed = () => {
+    // Filter only original images
+    const approvedImages = verificationResults
+      .filter(r => r.isOriginal)
+      .map(r => r.file);
+
+    // Add to images state
+    setImages(prev => [...prev, ...approvedImages]);
+
+    // Close modal and reset
+    setShowVerificationModal(false);
+    setVerificationResults([]);
+    setPendingImages([]);
+
+    console.log(`✅ Added ${approvedImages.length} verified images`);
+  };
+
+  const handleVerificationCancel = () => {
+    setShowVerificationModal(false);
+    setVerificationResults([]);
+    setPendingImages([]);
+    console.log('🚫 Image verification cancelled');
+  };
+
+  /* ✅ UPDATE: addFiles to use verification */
   const addFiles = useCallback((type, fileList) => {
     const files = Array.from(fileList || []);
     if (!files.length) return;
 
     if (type === "images") {
-      setImages((prev) => {
-        const merged = [...prev, ...files];
-        if (merged.length > 3) {
-          alert("Maximum 3 images allowed.");
-          return merged.slice(0, 3);
-        }
-        return merged;
-      });
-      setCurrentIdx((prev) => ({ ...prev, images: 0 }));
+      // ✅ Verify images instead of adding directly
+      verifyImages(files);
     } else if (type === "videos") {
       setVideos((prev) => {
         const merged = [...prev, ...files];
@@ -105,7 +194,7 @@ export default function UploadRoomPage() {
       setCurrentIdx((prev) => ({ ...prev, docs: 0 }));
     }
     setSubmitted(false);
-  }, []);
+  }, [images]); // ✅ Add images dependency
 
   const handleInputChange = (type) => (e) => {
     addFiles(type, e.target.files);
@@ -761,6 +850,13 @@ export default function UploadRoomPage() {
           </div>
         )}
       </div>
+      {/* ✅ ADD: Verification Modal */}
+      <ImageVerificationModal
+        isOpen={showVerificationModal}
+        onClose={handleVerificationCancel}
+        verificationResults={verificationResults}
+        onProceed={handleVerificationProceed}
+      />
     </div>
   );
 }

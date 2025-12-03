@@ -1,9 +1,15 @@
+// FE/src/pages/tenant/FindRoommatesPage.jsx
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Heart, Loader, MapPin, DollarSign, Calendar, ChevronLeft } from 'lucide-react';
+import { X, Heart, Loader, MapPin, DollarSign, Calendar, ChevronLeft, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import tenantService from '../../services/tenantService';
+import aiService from '../../services/aiService';
+import aiSessionManager from '../../utils/aiSessionManager';
+import AICompatibilityDialog from '../../components/tenant/AICompatibilityDialog';
+import AIResultDialog from '../../components/tenant/AIResultDialog';
 
-// ✅ Match Modal Component
+// ✅ Match Modal Component (unchanged)
 function MatchModal({ profile, onClose }) {
   const navigate = useNavigate();
 
@@ -77,7 +83,7 @@ function MatchModal({ profile, onClose }) {
   );
 }
 
-// ✅ Main Component
+// ✅ Main Component with AI Integration
 const FindRoommatesPage = () => {
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState([]);
@@ -86,14 +92,21 @@ const FindRoommatesPage = () => {
   const [isError, setIsError] = useState(false);
   const [message, setMessage] = useState('Fetching roommate profiles...');
   
-  // ✅ FIXED: Correct state variable names
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [matchedProfile, setMatchedProfile] = useState(null);
   
   const [swipeCount, setSwipeCount] = useState(0);
   const [isSwipeInProgress, setIsSwipeInProgress] = useState(false);
 
+  // ✅ NEW: AI State
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [showAIResultDialog, setShowAIResultDialog] = useState(false);
+  const [aiQuestions, setAiQuestions] = useState([]);
+  const [aiResult, setAiResult] = useState(null);
+  const [isAILoading, setIsAILoading] = useState(false);
+
   const currentProfile = profiles[currentIndex];
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   const fetchProfiles = useCallback(async () => {
     setIsLoading(true);
@@ -124,40 +137,158 @@ const FindRoommatesPage = () => {
     fetchProfiles();
   }, [fetchProfiles]);
 
-  // ✅ FIXED: Handle swipe with correct action values
+  // ✅ NEW: Handle AI Compatibility Check
+  const handleCheckCompatibility = async () => {
+    if (!currentProfile) return;
+
+    // Check cache first
+    const cachedResult = aiSessionManager.loadResult(currentProfile.id);
+
+    if (cachedResult) {
+      console.log('✅ Using cached AI result');
+      setAiResult(cachedResult);
+      setShowAIResultDialog(true);
+      return;
+    }
+
+    // No cache - Start AI flow
+    try {
+      setIsAILoading(true);
+
+      // Step 1: Generate questions
+      const questionsResponse = await aiService.generateQuestions(
+        {
+          name: user.name || 'User',
+          age: user.age,
+          gender: user.gender,
+          smoking: user.smoking,
+          cooking: user.cooking,
+          budgetPerMonth: user.budgetPerMonth,
+          stayLength: user.stayLength,
+          moveInDate: user.moveInDate,
+          preferredLocations: user.preferredLocations || [],
+          description: user.description || ''
+        },
+        {
+          name: currentProfile.name,
+          age: currentProfile.age,
+          gender: currentProfile.gender,
+          smoking: currentProfile.smoking,
+          cooking: currentProfile.cooking,
+          budgetPerMonth: currentProfile.budgetPerMonth,
+          stayLength: currentProfile.stayLength,
+          moveInDate: currentProfile.moveInDate,
+          preferredLocations: currentProfile.preferredLocations || [],
+          description: currentProfile.description || ''
+        }
+      );
+
+      setAiQuestions(questionsResponse.Question);
+      setShowAIDialog(true);
+    } catch (error) {
+      console.error('❌ Failed to generate AI questions:', error);
+      alert('AI service is unavailable. You can still swipe manually or try again later.');
+    } finally {
+      setIsAILoading(false);
+    }
+  };
+
+  // ✅ NEW: Handle Answer Submission
+  const handleSubmitAnswers = async (answers) => {
+    try {
+      setIsAILoading(true);
+
+      // Format Q&A history
+      const historyString = aiQuestions
+        .map((q, i) => `\n[Q${i + 1}]: ${q}\n[A${i + 1}]: ${answers[i]}`)
+        .join('');
+
+      // Step 2: Get compatibility score
+      const scoreResponse = await aiService.scoreCompatibility(
+        {
+          name: user.name || 'User',
+          age: user.age,
+          gender: user.gender,
+          smoking: user.smoking,
+          cooking: user.cooking,
+          budgetPerMonth: user.budgetPerMonth,
+          stayLength: user.stayLength,
+          moveInDate: user.moveInDate,
+          preferredLocations: user.preferredLocations || [],
+          description: user.description || ''
+        },
+        {
+          name: currentProfile.name,
+          age: currentProfile.age,
+          gender: currentProfile.gender,
+          smoking: currentProfile.smoking,
+          cooking: currentProfile.cooking,
+          budgetPerMonth: currentProfile.budgetPerMonth,
+          stayLength: currentProfile.stayLength,
+          moveInDate: currentProfile.moveInDate,
+          preferredLocations: currentProfile.preferredLocations || [],
+          description: currentProfile.description || ''
+        },
+        historyString
+      );
+
+      // Save to sessionStorage
+      aiSessionManager.saveResult(currentProfile.id, {
+        score: scoreResponse.Score,
+        reason: scoreResponse.ReasonBulletPoints,
+        questions: aiQuestions,
+        answers,
+      });
+
+      setAiResult({
+        score: scoreResponse.Score,
+        reason: scoreResponse.ReasonBulletPoints
+      });
+      setShowAIDialog(false);
+      setShowAIResultDialog(true);
+    } catch (error) {
+      console.error('❌ Failed to get compatibility score:', error);
+      alert('Failed to calculate compatibility. Please try again.');
+    } finally {
+      setIsAILoading(false);
+    }
+  };
+
+  // ✅ UPDATED: Handle Swipe with AI Result Dialog Actions
   const handleSwipe = async (action) => {
     if (isSwipeInProgress || currentIndex >= profiles.length) return;
 
-    const currentProfile = profiles[currentIndex];
+    const profile = profiles[currentIndex];
 
-     if (!currentProfile || !currentProfile.id) {
-      console.error('Invalid profile:', currentProfile);
+    if (!profile || !profile.id) {
+      console.error('Invalid profile:', profile);
       alert('Unable to process swipe. Profile data is missing.');
       setCurrentIndex(prev => prev + 1);
       return;
     }
 
     console.log('Swiping on profile:', {
-      userId: currentProfile.id,
-      name: currentProfile.name,
+      userId: profile.id,
+      name: profile.name,
       action: action
     });
     
-    // ✅ action is now 'ACCEPT' or 'REJECT' directly
     setIsSwipeInProgress(true);
     setSwipeCount(prev => prev + 1);
 
     try {
-      const response = await tenantService.swipe(currentProfile.id, action);
+      const response = await tenantService.swipe(profile.id, action);
       
       console.log('Swipe response:', response);
 
-      // ✅ Check if it's a match
+      // Clear AI cache for this tenant
+      aiSessionManager.clearResult(profile.id);
+
+      // Check if it's a match
       if (response.isMatch && response.matchDetail) {
         console.log('🎉 MATCH DETAILS:', response.matchDetail);
-        console.log('Conversation ID:', response.matchDetail.conversationId);
         setMatchedProfile({
-          ...currentProfile,
+          ...profile,
           matchId: response.matchDetail.matchId,
           conversationId: response.matchDetail.conversationId,
           matchedAt: response.matchDetail.matchedAt
@@ -167,6 +298,9 @@ const FindRoommatesPage = () => {
 
       // Move to next profile
       setCurrentIndex(prev => prev + 1);
+      
+      // Close AI result dialog if open
+      setShowAIResultDialog(false);
     } catch (error) {
       console.error('Error swiping:', error);
       alert('Failed to record swipe. Please try again.');
@@ -345,9 +479,23 @@ const FindRoommatesPage = () => {
                 </div>
               )}
 
+              {/* ✅ NEW: AI Compatibility Button */}
+              <div className="mb-4">
+                <button
+                  onClick={handleCheckCompatibility}
+                  disabled={isAILoading || isSwipeInProgress}
+                  className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-semibold py-4 rounded-2xl hover:from-teal-600 hover:to-cyan-600 transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Sparkles className="w-6 h-6" />
+                  <span>{isAILoading ? 'Loading AI...' : '🤖 Check Compatibility with AI'}</span>
+                </button>
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  Answer 5 quick questions to see your compatibility score
+                </p>
+              </div>
+
               {/* Action Buttons */}
               <div className="flex gap-4 justify-center pt-4">
-                {/* ✅ FIXED: Pass 'REJECT' directly */}
                 <button
                   onClick={() => handleSwipe('REJECT')}
                   disabled={isSwipeInProgress}
@@ -357,7 +505,6 @@ const FindRoommatesPage = () => {
                   <span>Pass</span>
                 </button>
 
-                {/* ✅ FIXED: Pass 'ACCEPT' directly */}
                 <button
                   onClick={() => handleSwipe('ACCEPT')}
                   disabled={isSwipeInProgress}
@@ -387,18 +534,35 @@ const FindRoommatesPage = () => {
 
         {/* Info Footer */}
         <div className="mt-6 text-center text-sm text-gray-500">
-          <p>💡 Tip: Swipe right on profiles you'd like to connect with</p>
+          <p>💡 Tip: Use AI to check compatibility before swiping</p>
           <p className="mt-1">🔒 Your preferences are private until you match</p>
         </div>
       </div>
 
-      {/* ✅ FIXED: Correct prop names */}
+      {/* ✅ Match Modal */}
       {showMatchModal && matchedProfile && (
         <MatchModal
           profile={matchedProfile}
           onClose={handleCloseMatch}
         />
       )}
+
+      {/* ✅ NEW: AI Dialogs */}
+      <AICompatibilityDialog
+        isOpen={showAIDialog}
+        onClose={() => setShowAIDialog(false)}
+        questions={aiQuestions}
+        onSubmitAnswers={handleSubmitAnswers}
+        isLoading={isAILoading}
+      />
+
+      <AIResultDialog
+        isOpen={showAIResultDialog}
+        onClose={() => setShowAIResultDialog(false)}
+        result={aiResult}
+        onAccept={() => handleSwipe('ACCEPT')}
+        onReject={() => handleSwipe('REJECT')}
+      />
     </div>
   );
 };
