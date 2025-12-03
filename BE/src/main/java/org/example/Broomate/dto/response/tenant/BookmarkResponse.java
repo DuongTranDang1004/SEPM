@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.example.Broomate.dto.response.allAuthUser.ConversationDetailResponse;
 import org.example.Broomate.dto.response.allAuthUser.RoomDetailResponse;
 import org.example.Broomate.model.Bookmark;
 import org.example.Broomate.model.Room;
@@ -13,7 +14,7 @@ import org.example.Broomate.model.Room;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Schema(description = "Bookmark response with optional room details")
+@Schema(description = "Bookmark response with optional room details and 3-way conversation")
 public class BookmarkResponse {
 
     @Schema(description = "Bookmark ID", example = "bookmark-123")
@@ -28,6 +29,22 @@ public class BookmarkResponse {
     @Schema(description = "Room details (included when fetching all bookmarks)")
     private RoomDetailResponse room;
 
+    // ✅ NEW FIELDS
+    @Schema(description = "Whether a 3-way conversation was created with matched tenant and landlord")
+    private Boolean threeWayConversationCreated;
+
+    @Schema(description = "3-way conversation details if created")
+    private ConversationDetailResponse threeWayConversation;
+
+    @Schema(description = "Matched tenant who also bookmarked this room")
+    private String matchedTenantId;
+
+    @Schema(description = "Matched tenant name")
+    private String matchedTenantName;
+
+    @Schema(description = "Response message")
+    private String message;
+
     /**
      * Create response without room details (for bookmark/unbookmark actions)
      */
@@ -37,7 +54,36 @@ public class BookmarkResponse {
                 .roomId(bookmark.getRoomId())
                 .bookmarkedAt(bookmark.getCreatedAt() != null ?
                         bookmark.getCreatedAt().toString() : null)
-                .room(null)  // No room details
+                .room(null)
+                .threeWayConversationCreated(false)
+                .threeWayConversation(null)
+                .matchedTenantId(null)
+                .matchedTenantName(null)
+                .message("Room bookmarked successfully")
+                .build();
+    }
+
+    /**
+     * Create response with 3-way conversation details
+     */
+    public static BookmarkResponse fromBookmarkWithThreeWayConversation(
+            Bookmark bookmark,
+            ConversationDetailResponse conversation,
+            String matchedTenantId,
+            String matchedTenantName
+    ) {
+        return BookmarkResponse.builder()
+                .id(bookmark.getId())
+                .roomId(bookmark.getRoomId())
+                .bookmarkedAt(bookmark.getCreatedAt() != null ?
+                        bookmark.getCreatedAt().toString() : null)
+                .room(null)
+                .threeWayConversationCreated(true)
+                .threeWayConversation(conversation)
+                .matchedTenantId(matchedTenantId)
+                .matchedTenantName(matchedTenantName)
+                .message("Room bookmarked! A 3-way conversation has been created with " +
+                        matchedTenantName + " and the landlord.")
                 .build();
     }
 
@@ -50,7 +96,12 @@ public class BookmarkResponse {
                 .roomId(bookmark.getRoomId())
                 .bookmarkedAt(bookmark.getCreatedAt() != null ?
                         bookmark.getCreatedAt().toString() : null)
-                .room(RoomDetailResponse.fromRoom(room))  // Include room details
+                .room(RoomDetailResponse.fromRoom(room))
+                .threeWayConversationCreated(false)
+                .threeWayConversation(null)
+                .matchedTenantId(null)
+                .matchedTenantName(null)
+                .message(null)
                 .build();
     }
 }
