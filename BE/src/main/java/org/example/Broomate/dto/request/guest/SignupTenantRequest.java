@@ -44,12 +44,17 @@ public class SignupTenantRequest {
     private String description;
 
     // Human preference criteria
+    // ✅ UPDATED: Age is now REQUIRED
+    @NotNull(message = "Age is required")
     @Min(value = 18, message = "Age must be at least 18")
     @Max(value = 100, message = "Age must be less than 100")
-    @Schema(description = "Age", example = "25")
+    @Schema(description = "Age", example = "25", required = true)
     private Integer age;
 
-    @Schema(description = "Gender", example = "MALE", allowableValues = {"MALE", "FEMALE", "OTHER"})
+    // ✅ UPDATED: Gender is now REQUIRED
+    @NotBlank(message = "Gender is required")
+    @Pattern(regexp = "MALE|FEMALE|OTHER", message = "Gender must be MALE, FEMALE, or OTHER")
+    @Schema(description = "Gender", example = "MALE", allowableValues = {"MALE", "FEMALE", "OTHER"}, required = true)
     private String gender;
 
     @Min(value = 1, message = "Stay length must be at least 1 month")

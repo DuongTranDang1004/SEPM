@@ -263,13 +263,13 @@ function MessengerPopup({ isOpen, onClose }) {
       />
 
       {/* Messenger Popup */}
-      <div className="fixed bottom-0 right-6 w-96 h-[600px] bg-white rounded-t-2xl shadow-2xl z-50 flex flex-col overflow-hidden">
+      <div className="fixed bottom-0 right-6 w-96 h-[600px] bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl z-50 flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700">
         {/* Header */}
-        <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white px-4 py-3 rounded-t-2xl flex items-center justify-between flex-shrink-0">
+        <div className="bg-gradient-to-r from-teal-500 to-teal-600 dark:from-teal-600 dark:to-teal-700 text-white px-4 py-3 rounded-t-2xl flex items-center justify-between flex-shrink-0">
           <h3 className="font-semibold text-lg">Messages</h3>
           <button 
             onClick={onClose}
-            className="hover:bg-white/20 p-1 rounded-full transition"
+            className="hover:bg-white/20 dark:hover:bg-white/30 p-1 rounded-full transition"
           >
             <X className="w-5 h-5" />
           </button>

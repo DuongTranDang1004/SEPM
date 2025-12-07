@@ -23,28 +23,27 @@ function ChatWindow({
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
+      <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="text-6xl mb-4">💬</div>
-          <p className="text-gray-600">Select a conversation to start messaging</p>
+          <p className="text-gray-600 dark:text-gray-400">Select a conversation to start messaging</p>
         </div>
       </div>
     );
   }
 
   return (
-    // ✅ CRITICAL FIX: Use h-full instead of flex-1 for popup mode
     <div className={`${compact ? 'h-full' : 'flex-1'} flex flex-col`}>
       {/* Chat Header */}
-      <div className={`bg-white border-b border-gray-200 ${compact ? 'p-3' : 'p-4'} flex items-center justify-between flex-shrink-0`}>
+      <div className={`bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${compact ? 'p-3' : 'p-4'} flex items-center justify-between flex-shrink-0`}>
         <div className="flex items-center gap-3">
           {/* Back Button (for compact view) */}
           {compact && onBack && (
             <button
               onClick={onBack}
-              className="hover:bg-gray-100 p-1 rounded-full transition"
+              className="hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded-full transition"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
             </button>
           )}
 
@@ -67,31 +66,33 @@ function ChatWindow({
 
           {/* Info */}
           <div>
-            <p className={`font-semibold text-gray-900 ${compact ? 'text-sm' : ''}`}>
+            <p className={`font-semibold text-gray-900 dark:text-white ${compact ? 'text-sm' : ''}`}>
               {conversation.otherParticipantName}
             </p>
-            <p className="text-xs text-gray-500">Active now</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Active now</p>
           </div>
         </div>
 
         {/* More Options */}
-        <button className="p-2 hover:bg-gray-100 rounded-full transition">
-          <MoreVertical className={`text-gray-600 ${compact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+        <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition">
+          <MoreVertical className={`text-gray-600 dark:text-gray-400 ${compact ? 'w-4 h-4' : 'w-5 h-5'}`} />
         </button>
       </div>
 
       {/* Messages Area */}
       <div className={`flex-1 overflow-y-auto ${compact ? 'p-3' : 'p-6'} ${
-        compact ? 'bg-gray-50' : 'bg-gradient-to-br from-pink-50/30 to-teal-50/30'
+        compact 
+          ? 'bg-gray-50 dark:bg-gray-900' 
+          : 'bg-gradient-to-br from-pink-50/30 to-teal-50/30 dark:from-gray-900 dark:to-gray-800'
       }`}>
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
-            <Loader className="w-8 h-8 text-teal-600 animate-spin" />
+            <Loader className="w-8 h-8 text-teal-600 dark:text-teal-400 animate-spin" />
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-8">
             <div className={`${compact ? 'text-4xl' : 'text-5xl'} mb-3`}>💬</div>
-            <p className="text-gray-500 text-sm">No messages yet. Start the conversation!</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No messages yet. Start the conversation!</p>
           </div>
         ) : (
           <>
@@ -113,7 +114,7 @@ function ChatWindow({
         )}
       </div>
 
-      {/* ✅ Message Input - Fixed at bottom */}
+      {/* Message Input */}
       <MessageInput
         onSendMessage={onSendMessage}
         isSending={isSending}

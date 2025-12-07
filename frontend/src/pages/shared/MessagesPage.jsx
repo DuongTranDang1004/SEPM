@@ -1,4 +1,4 @@
-// FE/src/pages/MessagesPage.jsx
+// FE/src/pages/shared/MessagesPage.jsx
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -7,7 +7,7 @@ import ConversationList from '../../components/messaging/ConversationList';
 import ChatWindow from '../../components/messaging/ChatWindow';
 import messageService from '../../services/messageService';
 import websocketService from '../../services/websocketService';
-import { useMessages } from '../../contexts/MessageContext'; // ✅ Import
+import { useMessages } from '../../contexts/MessageContext';
 
 function MessagesPage() {
   const navigate = useNavigate();
@@ -20,18 +20,13 @@ function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  // ✅ Get decrementUnread function
-  const { decrementUnread } = useMessages();
-
-  const { markConversationAsRead } = useMessages();
+  const { decrementUnread, markConversationAsRead } = useMessages();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const currentUserId = user.userId;
 
-  // ✅ Use ref to track selected conversation for WebSocket callback
   const selectedConversationRef = useRef(null);
 
-  // ✅ Update ref whenever selectedConversation changes
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
   }, [selectedConversation]);
@@ -49,7 +44,6 @@ function MessagesPage() {
         .then(() => {
           console.log('✅ WebSocket connected in MessagesPage');
           
-          // ✅ Register message handler
           unsubscribeMessages = websocketService.onNewMessage((payload) => {
             console.log('💬 📥 Message received in MessagesPage:', payload);
             
@@ -105,7 +99,6 @@ function MessagesPage() {
             });
           });
 
-          // ✅ Register swipe handler
           unsubscribeSwipes = websocketService.onNewSwipe((payload) => {
             console.log('👍 📥 Swipe received in MessagesPage:', payload);
             
@@ -120,14 +113,11 @@ function MessagesPage() {
         });
     }
     
-    // ✅ Cleanup on unmount
     return () => {
       console.log('🧹 Cleaning up WebSocket subscriptions');
       if (unsubscribeMessages) unsubscribeMessages();
       if (unsubscribeSwipes) unsubscribeSwipes();
     };
-    
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId]);
 
   useEffect(() => {
@@ -170,7 +160,6 @@ function MessagesPage() {
       return;
     }
 
-    // ✅ Check if conversation has unread messages
     const hasUnread = (conversation.unreadCount || 0) > 0;
 
     setSelectedConversation(conversation);
@@ -182,12 +171,10 @@ function MessagesPage() {
       
       await messageService.markAsRead(convId);
       
-      // ✅ Mark conversation as read in global context
       if (hasUnread) {
         markConversationAsRead(convId);
       }
       
-      // Reset local unread count
       setConversations(prev => prev.map(conv => {
         const cId = conv.id || conv.conversationId;
         if (cId === convId) {
@@ -231,7 +218,6 @@ function MessagesPage() {
       console.log('✅ Message sent:', newMessage);
       setMessages(prev => [...prev, newMessage]);
       
-      // Update conversation list
       setConversations(prev => prev.map(conv => {
         const cId = conv.id || conv.conversationId;
         if (cId === convId) {
@@ -258,25 +244,25 @@ function MessagesPage() {
 
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <Loader className="w-12 h-12 text-teal-600 animate-spin" />
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-teal-50 to-white dark:from-gray-900 dark:to-gray-800">
+        <Loader className="w-12 h-12 text-teal-600 dark:text-teal-400 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="h-full flex bg-gray-50">
+    <div className="h-full flex bg-gray-50 dark:bg-gray-900">
       {/* Conversation List Sidebar */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b">
+      <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+            className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mb-4"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="font-semibold">Back</span>
           </button>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Messages</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Messages</h2>
         </div>
 
         <ConversationList

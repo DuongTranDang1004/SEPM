@@ -1,3 +1,5 @@
+// FE/src/components/layout/DashboardLayout.jsx
+
 import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar.jsx';
@@ -12,16 +14,13 @@ function DashboardLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
 
-  // Determine user role from the route
   const isTenant = location.pathname.includes('/tenant');
   const isLandlord = location.pathname.includes('/landlord');
 
-  // ✅ Fetch unread message count on mount and when messenger closes
   useEffect(() => {
     fetchUnreadCount();
   }, []);
 
-  // ✅ Refresh unread count when messenger closes
   useEffect(() => {
     if (!isMessengerOpen) {
       fetchUnreadCount();
@@ -32,12 +31,9 @@ function DashboardLayout() {
     try {
       const data = await messageService.getAllConversations();
       const conversations = data.conversations || [];
-      
-      // ✅ Calculate total unread messages
       const totalUnread = conversations.reduce((sum, conv) => {
         return sum + (conv.unreadCount || 0);
       }, 0);
-      
       setUnreadCount(totalUnread);
     } catch (error) {
       console.error('Error fetching unread count:', error);
@@ -46,16 +42,13 @@ function DashboardLayout() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-pink-50 via-white to-teal-50">
-      {/* Navigation Bar */}
+    <div className="h-screen flex flex-col bg-gradient-to-br from-pink-50 via-white to-teal-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900"> {/* ✅ UPDATED */}
       <Navbar 
         onOpenMessenger={() => setIsMessengerOpen(true)} 
-        unreadCount={unreadCount}  // ✅ Dynamic unread count
+        unreadCount={unreadCount}
       />
 
-      {/* Main Content with Sidebar */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Conditional Sidebar - Only show on tenant/landlord routes */}
         {(isTenant || isLandlord) && (
           <>
             {isTenant && (
@@ -73,13 +66,11 @@ function DashboardLayout() {
           </>
         )}
 
-        {/* Page Content */}
         <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>
       </div>
 
-      {/* Messenger Popup (Facebook-style) */}
       <MessengerPopup 
         isOpen={isMessengerOpen}
         onClose={() => setIsMessengerOpen(false)}
