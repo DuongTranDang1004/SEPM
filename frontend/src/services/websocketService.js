@@ -8,29 +8,26 @@ class WebSocketService {
     this.client = null;
     this.messageCallbacks = [];
     this.swipeCallbacks = [];
-    this.isConnecting = false; // ✅ Add connection lock
-    this.connectionPromise = null; // ✅ Store connection promise
+    this.conversationCallbacks = []; // ✅ NEW: For 3-way conversation notifications
+    this.isConnecting = false;
+    this.connectionPromise = null;
   }
 
-  // ✅ ADD THIS METHOD
   isConnected() {
     return this.client && this.client.connected;
   }
 
   connect(token, userId) {
-    // ✅ If already connected, return immediately
     if (this.client && this.client.connected) {
       console.log('⚠️ Already connected to WebSocket');
       return Promise.resolve();
     }
 
-    // ✅ If currently connecting, return the existing promise
     if (this.isConnecting && this.connectionPromise) {
       console.log('⚠️ Connection already in progress, returning existing promise');
       return this.connectionPromise;
     }
 
-    // ✅ Set connection lock
     this.isConnecting = true;
 
     this.connectionPromise = new Promise((resolve, reject) => {
@@ -50,7 +47,6 @@ class WebSocketService {
           console.log('✅ WebSocket connected successfully!');
           console.log('📡 Frame:', frame);
 
-          // ✅ Small delay to ensure connection is stable
           setTimeout(() => {
             try {
               console.log('📬 Subscribing to: /user/queue/messages');
@@ -59,13 +55,9 @@ class WebSocketService {
                 `/user/queue/messages`,
                 (message) => {
                   console.log('🎯 RAW MESSAGE RECEIVED FROM BROKER:', message);
-                  console.log('📨 Message body:', message.body);
-                  console.log('📨 Message headers:', message.headers);
-
                   const payload = JSON.parse(message.body);
                   console.log('💬 ✅ NEW MESSAGE RECEIVED:', payload);
 
-                  // ✅ Invoke all registered callbacks
                   this.messageCallbacks.forEach(callback => {
                     try {
                       callback(payload);
@@ -85,11 +77,9 @@ class WebSocketService {
                 `/user/queue/swipes`,
                 (message) => {
                   console.log('🎯 RAW SWIPE RECEIVED FROM BROKER:', message);
-
                   const payload = JSON.parse(message.body);
                   console.log('👍 ✅ NEW SWIPE RECEIVED:', payload);
 
-                  // ✅ Invoke all registered callbacks
                   this.swipeCallbacks.forEach(callback => {
                     try {
                       callback(payload);
@@ -103,7 +93,29 @@ class WebSocketService {
               console.log('✅ Subscribed to swipes');
               console.log('📋 Subscription ID:', swipeSubscription.id);
 
-              // ✅ Release connection lock
+              // ✅ NEW: Subscribe to 3-way conversation notifications
+              console.log('🎉 Subscribing to: /user/queue/conversations');
+
+              const conversationSubscription = this.client.subscribe(
+                `/user/queue/conversations`,
+                (message) => {
+                  console.log('🎯 RAW CONVERSATION NOTIFICATION RECEIVED:', message);
+                  const payload = JSON.parse(message.body);
+                  console.log('🎉 ✅ 3-WAY CONVERSATION CREATED:', payload);
+
+                  this.conversationCallbacks.forEach(callback => {
+                    try {
+                      callback(payload);
+                    } catch (error) {
+                      console.error('❌ Error in conversation callback:', error);
+                    }
+                  });
+                }
+              );
+
+              console.log('✅ Subscribed to conversations');
+              console.log('📋 Subscription ID:', conversationSubscription.id);
+
               this.isConnecting = false;
               resolve();
             } catch (error) {
@@ -146,9 +158,9 @@ class WebSocketService {
       this.client = null;
       this.isConnecting = false;
       this.connectionPromise = null;
-      // ✅ Clear all callbacks
       this.messageCallbacks = [];
       this.swipeCallbacks = [];
+      this.conversationCallbacks = []; // ✅ Clear conversation callbacks
     }
   }
 
@@ -156,7 +168,6 @@ class WebSocketService {
     console.log('📝 Registering message callback');
     this.messageCallbacks.push(callback);
     
-    // ✅ Return unsubscribe function
     return () => {
       console.log('🗑️ Unregistering message callback');
       this.messageCallbacks = this.messageCallbacks.filter(cb => cb !== callback);
@@ -167,14 +178,23 @@ class WebSocketService {
     console.log('📝 Registering swipe callback');
     this.swipeCallbacks.push(callback);
     
-    // ✅ Return unsubscribe function
     return () => {
       console.log('🗑️ Unregistering swipe callback');
       this.swipeCallbacks = this.swipeCallbacks.filter(cb => cb !== callback);
     };
   }
+
+  // ✅ NEW: Listen for 3-way conversation notifications
+  onConversationNotification(callback) {
+    console.log('📝 Registering conversation callback');
+    this.conversationCallbacks.push(callback);
+    
+    return () => {
+      console.log('🗑️ Unregistering conversation callback');
+      this.conversationCallbacks = this.conversationCallbacks.filter(cb => cb !== callback);
+    };
+  }
 }
 
-// ✅ Export singleton instance
 const websocketService = new WebSocketService();
 export default websocketService;

@@ -1,6 +1,7 @@
 // FE/src/contexts/MessageContext.jsx
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import messageService from '../services/messageService';
 import websocketService from '../services/websocketService';
 
@@ -15,24 +16,22 @@ export const useMessages = () => {
 };
 
 export const MessageProvider = ({ children }) => {
+  const navigate = useNavigate();
   const [unreadConversationsCount, setUnreadConversationsCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   
-  // ✅ Use ref to track which conversations are unread
   const conversationsWithUnreadRef = useRef(new Set());
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const currentUserId = user.userId;
   const token = localStorage.getItem('token');
 
-  // ✅ Fetch initial unread conversations
   const fetchUnreadConversationsCount = async () => {
     if (!currentUserId) return;
 
     try {
       const data = await messageService.getAllConversations();
       
-      // ✅ Get conversations with unreadCount > 0
       const unreadConvIds = (data.conversations || [])
         .filter(conv => (conv.unreadCount || 0) > 0)
         .map(conv => conv.id || conv.conversationId);
@@ -41,19 +40,18 @@ export const MessageProvider = ({ children }) => {
       setUnreadConversationsCount(unreadConvIds.length);
       
       console.log('📊 Initial unread conversations:', unreadConvIds.length);
-      console.log('📋 Unread conversation IDs:', unreadConvIds);
     } catch (error) {
       console.error('❌ Error fetching unread conversations:', error);
     }
   };
 
-  // ✅ Connect to WebSocket
   useEffect(() => {
     if (!currentUserId || !token) return;
 
     fetchUnreadConversationsCount();
 
     let unsubscribeMessages = null;
+    let unsubscribeConversations = null;
 
     console.log('🔌 MessageContext: Connecting to WebSocket');
 
@@ -62,21 +60,56 @@ export const MessageProvider = ({ children }) => {
         console.log('✅ MessageContext: WebSocket connected');
         setIsConnected(true);
 
-        // ✅ Listen for new messages
+        // Listen for new messages
         unsubscribeMessages = websocketService.onNewMessage((payload) => {
           console.log('💬 MessageContext: New message in conversation:', payload.conversationId);
           
-          // ✅ Only increment if this conversation is NOT already in unread set
+          // ✅ FIX: Don't count your own messages as unread
+          if (payload.senderId === currentUserId) {
+            console.log('⏭️ Ignoring own message for unread count');
+            return;
+          }
+          
           const wasAlreadyUnread = conversationsWithUnreadRef.current.has(payload.conversationId);
           
           if (!wasAlreadyUnread) {
             console.log('➕ Adding NEW unread conversation:', payload.conversationId);
             conversationsWithUnreadRef.current.add(payload.conversationId);
             setUnreadConversationsCount(prev => prev + 1);
-            console.log('📊 New unread conversations count:', conversationsWithUnreadRef.current.size);
-          } else {
-            console.log('⏭️ Conversation already unread, not incrementing:', payload.conversationId);
           }
+        });
+
+        // ✅ Listen for 3-way conversation creation
+        unsubscribeConversations = websocketService.onConversationNotification((payload) => {
+          console.log('🎉 MessageContext: 3-way conversation created:', payload);
+          
+          const { conversationId, roomTitle, participants } = payload;
+          const participantNames = participants
+            .filter(p => p.userId !== currentUserId)
+            .map(p => p.name)
+            .join(' and ');
+          
+          // Show browser notification (if permitted)
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('🎉 Perfect Match!', {
+              body: `A group chat has been created for "${roomTitle}" with ${participantNames}`,
+              icon: '/logo.png'
+            });
+          }
+          
+          // Show in-app confirmation
+          const shouldOpen = window.confirm(
+            `🎉 Match!\n\nA group chat has been created for "${roomTitle}"\nwith ${participantNames}.\n\nOpen it now?`
+          );
+          
+          if (shouldOpen) {
+            navigate('/messages', { 
+              state: { conversationId: conversationId } 
+            });
+          }
+          
+          // Refresh unread count
+          fetchUnreadConversationsCount();
         });
       })
       .catch(error => {
@@ -87,10 +120,10 @@ export const MessageProvider = ({ children }) => {
     return () => {
       console.log('🧹 MessageContext: Cleaning up');
       if (unsubscribeMessages) unsubscribeMessages();
+      if (unsubscribeConversations) unsubscribeConversations();
     };
-  }, [currentUserId, token]);
+  }, [currentUserId, token, navigate]);
 
-  // ✅ Mark conversation as read
   const markConversationAsRead = (conversationId) => {
     const wasUnread = conversationsWithUnreadRef.current.has(conversationId);
     
@@ -98,13 +131,9 @@ export const MessageProvider = ({ children }) => {
       console.log('✅ Marking conversation as read:', conversationId);
       conversationsWithUnreadRef.current.delete(conversationId);
       setUnreadConversationsCount(prev => Math.max(0, prev - 1));
-      console.log('📊 Remaining unread conversations:', conversationsWithUnreadRef.current.size);
-    } else {
-      console.log('⏭️ Conversation was not unread, no change:', conversationId);
     }
   };
 
-  // ✅ Refresh count manually
   const refreshUnreadCount = () => {
     console.log('🔄 Refreshing unread conversations count...');
     fetchUnreadConversationsCount();

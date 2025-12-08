@@ -1,6 +1,6 @@
 // FE/src/pages/shared/MessagesPage.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Loader } from 'lucide-react';
 import ConversationList from '../../components/messaging/ConversationList';
@@ -20,7 +20,7 @@ function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  const { decrementUnread, markConversationAsRead } = useMessages();
+  const { markConversationAsRead } = useMessages();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const currentUserId = user.userId;
@@ -46,6 +46,12 @@ function MessagesPage() {
           
           unsubscribeMessages = websocketService.onNewMessage((payload) => {
             console.log('💬 📥 Message received in MessagesPage:', payload);
+            
+            // ✅ FIX: Don't add your own messages (already added locally)
+            if (payload.senderId === currentUserId) {
+              console.log('⏭️ Ignoring own message from WebSocket (already added locally)');
+              return;
+            }
             
             const currentConv = selectedConversationRef.current;
             const currentConvId = currentConv?.id || currentConv?.conversationId;
@@ -165,8 +171,18 @@ function MessagesPage() {
     setSelectedConversation(conversation);
 
     try {
-      const data = await messageService.getMessages(convId);
-      console.log('✅ Messages loaded:', data);
+      const data = await messageService.getConversationDetail(convId);
+      
+      console.log('=== CONVERSATION DETAIL ===');
+      console.log('Conversation Type:', data.conversationType);
+      console.log('All Participants:', data.allParticipants);
+      console.log('Messages:', data.messages);
+      
+      setSelectedConversation({
+        ...conversation,
+        ...data,
+      });
+      
       setMessages(data.messages || []);
       
       await messageService.markAsRead(convId);
@@ -238,9 +254,20 @@ function MessagesPage() {
     }
   };
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.otherParticipantName?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // ✅ OPTIMIZED: useMemo for filtered conversations
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery) return conversations;
+    
+    const searchLower = searchQuery.toLowerCase();
+    return conversations.filter(conv => {
+      if (conv.conversationType === 'THREE_WAY' && conv.allParticipants) {
+        return conv.allParticipants.some(p => 
+          p.name.toLowerCase().includes(searchLower)
+        );
+      }
+      return conv.otherParticipantName?.toLowerCase().includes(searchLower);
+    });
+  }, [conversations, searchQuery]);
 
   if (isLoading) {
     return (
@@ -251,10 +278,10 @@ function MessagesPage() {
   }
 
   return (
-    <div className="h-full flex bg-gray-50 dark:bg-gray-900">
+    <div className="h-full flex bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* Conversation List Sidebar */}
-      <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0 h-full">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mb-4"
@@ -271,19 +298,22 @@ function MessagesPage() {
           onSelectConversation={handleSelectConversation}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          currentUserId={currentUserId} // ✅ PASS currentUserId
           compact={false}
         />
       </div>
 
       {/* Chat Window */}
-      <ChatWindow
-        conversation={selectedConversation}
-        messages={messages}
-        currentUserId={currentUserId}
-        onSendMessage={handleSendMessage}
-        isSending={isSending}
-        compact={false}
-      />
+      <div className="flex-1 h-full overflow-hidden">
+        <ChatWindow
+          conversation={selectedConversation}
+          messages={messages}
+          currentUserId={currentUserId}
+          onSendMessage={handleSendMessage}
+          isSending={isSending}
+          compact={false}
+        />
+      </div>
     </div>
   );
 }

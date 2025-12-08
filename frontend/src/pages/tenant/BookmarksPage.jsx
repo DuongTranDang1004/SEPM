@@ -198,12 +198,10 @@ function BookmarksPage() {
                         }}
                       />
                       
-                      {/* Bookmarked Badge */}
                       <div className="absolute top-3 right-3 bg-teal-500 text-white p-2 rounded-full shadow-lg">
                         <Bookmark className="w-5 h-5" fill="currentColor" />
                       </div>
 
-                      {/* Saved Date */}
                       {bookmark.bookmarkedAt && (
                         <div className="absolute bottom-3 left-3 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
                           Saved {formatDate(bookmark.bookmarkedAt)}
@@ -221,14 +219,12 @@ function BookmarksPage() {
                         {room?.title || 'Untitled Room'}
                       </h3>
 
-                      {/* Description */}
                       {room?.description && (
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
                           {room.description}
                         </p>
                       )}
 
-                      {/* Details */}
                       <div className="space-y-2 mb-3 flex-1">
                         {room?.address && (
                           <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
@@ -259,7 +255,6 @@ function BookmarksPage() {
                         </div>
                       </div>
 
-                      {/* Amenities */}
                       <div className="flex flex-wrap gap-1 mb-3">
                         {room?.hasWindow && (
                           <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
@@ -278,7 +273,6 @@ function BookmarksPage() {
                         )}
                       </div>
 
-                      {/* Footer */}
                       <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
                         <div className="text-sm text-gray-600 dark:text-gray-400">
                           {room?.address ? extractDistrict(room.address) : 'HCMC'}
@@ -292,7 +286,6 @@ function BookmarksPage() {
                         </div>
                       </div>
 
-                      {/* Action Buttons */}
                       <div className="flex gap-2 mt-4">
                         <button
                           onClick={() => handleViewRoom(room.id)}
@@ -323,7 +316,6 @@ function BookmarksPage() {
         )}
       </div>
 
-      {/* Bottom CTA for mobile */}
       {bookmarks.length > 0 && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 shadow-lg">
           <button

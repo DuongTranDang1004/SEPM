@@ -8,13 +8,24 @@ import { Download, X, FileText, ExternalLink } from 'lucide-react';
  */
 function MessageBubble({ 
   message, 
-  isMyMessage, 
+  isMyMessage,
+  currentUserId, 
   senderName,
   senderAvatar,
-  compact = false 
+  compact = false,
+  conversation // ✅ Make sure this is passed from ChatWindow
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+
+  // ✅ Safe check for three-way conversation
+  const isThreeWay = conversation?.conversationType === 'THREE_WAY';
+  const allParticipants = conversation?.allParticipants || [];
+
+  const getSenderInfo = (senderId) => {
+    if (!isThreeWay || !allParticipants.length) return null;
+    return allParticipants.find(p => p.userId === senderId);
+  };
 
   // Helper functions to detect media types
   const isImageUrl = (url) => {
@@ -83,14 +94,42 @@ function MessageBubble({
       <div className={`flex gap-3 ${isMyMessage ? 'flex-row-reverse' : ''} ${compact ? 'mb-3' : 'mb-4'}`}>
         {/* Avatar */}
         <div className={`${compact ? 'w-8 h-8' : 'w-10 h-10'} rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-semibold flex-shrink-0 ${compact ? 'text-xs' : 'text-sm'}`}>
-          {senderAvatar || (isMyMessage ? 'ME' : senderName?.charAt(0) || '?')}
+          {isMyMessage ? 'ME' : (
+            (() => {
+              if (isThreeWay) {
+                const sender = getSenderInfo(message.senderId);
+                return sender ? sender.name.charAt(0).toUpperCase() : '?';
+              }
+              return senderName?.charAt(0)?.toUpperCase() || '?';
+            })()
+          )}
         </div>
 
         {/* Message Content */}
         <div className={`flex flex-col ${isMyMessage ? 'items-end' : 'items-start'} ${compact ? 'max-w-[70%]' : 'max-w-md'}`}>
-          {/* Sender name (only for received messages) */}
-          {!isMyMessage && !compact && (
-            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 px-2">{senderName}</p>
+          
+          {/* ✅ Show sender info in three-way chats */}
+          {isThreeWay && !isMyMessage && (() => {
+            const sender = getSenderInfo(message.senderId);
+            return sender ? (
+              <div className="flex items-center gap-2 mb-1 px-2">
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  {sender.name}
+                </p>
+                {sender.role === 'LANDLORD' && (
+                  <span className="px-2 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300 text-xs rounded-full font-medium">
+                    Landlord
+                  </span>
+                )}
+              </div>
+            ) : null;
+          })()}
+
+          {/* ✅ Fallback sender name (for non-three-way or when sender name is provided) */}
+          {!isThreeWay && !isMyMessage && senderName && !compact && (
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 px-2">
+              {senderName}
+            </p>
           )}
 
           {/* Message bubble */}
