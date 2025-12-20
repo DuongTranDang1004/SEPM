@@ -17,6 +17,7 @@ export const useMessages = () => {
 
 export const MessageProvider = ({ children }) => {
   const navigate = useNavigate();
+  const [allConversations, setAllConversations] = useState([]);
   const [unreadConversationsCount, setUnreadConversationsCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   
@@ -26,29 +27,71 @@ export const MessageProvider = ({ children }) => {
   const currentUserId = user.userId;
   const token = localStorage.getItem('token');
 
-  const fetchUnreadConversationsCount = async () => {
+  // ✅ NEW: Load read conversations from localStorage
+  const getReadConversations = () => {
+    try {
+      const stored = localStorage.getItem(`readConversations_${currentUserId}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  };
+
+  // ✅ NEW: Save read conversations to localStorage
+  const saveReadConversations = (readSet) => {
+    try {
+      localStorage.setItem(
+        `readConversations_${currentUserId}`,
+        JSON.stringify([...readSet])
+      );
+    } catch (error) {
+      console.error('Failed to save read conversations:', error);
+    }
+  };
+
+  const fetchConversations = async () => {
     if (!currentUserId) return;
 
     try {
+      console.log('📥 MessageContext: Fetching all conversations...');
       const data = await messageService.getAllConversations();
       
+      setAllConversations(data.conversations || []);
+      
+      // ✅ LOAD READ CONVERSATIONS FROM LOCALSTORAGE
+      const readConversations = getReadConversations();
+      console.log('📖 Read conversations from localStorage:', readConversations.size);
+      
+      // ✅ Determine unread conversations
       const unreadConvIds = (data.conversations || [])
-        .filter(conv => (conv.unreadCount || 0) > 0)
+        .filter(conv => {
+          const convId = conv.id || conv.conversationId;
+          
+          // Conversation is unread if:
+          // 1. It has a last message
+          // 2. It's NOT in the read conversations set
+          const hasMessage = conv.lastMessage && conv.lastMessage.trim() !== '';
+          const isRead = readConversations.has(convId);
+          
+          return hasMessage && !isRead;
+        })
         .map(conv => conv.id || conv.conversationId);
       
       conversationsWithUnreadRef.current = new Set(unreadConvIds);
       setUnreadConversationsCount(unreadConvIds.length);
       
-      console.log('📊 Initial unread conversations:', unreadConvIds.length);
+      console.log('📊 Total conversations:', data.conversations?.length || 0);
+      console.log('📊 Unread conversations:', unreadConvIds.length);
+      console.log('📋 Unread IDs:', [...unreadConvIds]);
     } catch (error) {
-      console.error('❌ Error fetching unread conversations:', error);
+      console.error('❌ Error fetching conversations:', error);
     }
   };
 
   useEffect(() => {
     if (!currentUserId || !token) return;
 
-    fetchUnreadConversationsCount();
+    fetchConversations();
 
     let unsubscribeMessages = null;
     let unsubscribeConversations = null;
@@ -60,11 +103,9 @@ export const MessageProvider = ({ children }) => {
         console.log('✅ MessageContext: WebSocket connected');
         setIsConnected(true);
 
-        // Listen for new messages
         unsubscribeMessages = websocketService.onNewMessage((payload) => {
           console.log('💬 MessageContext: New message in conversation:', payload.conversationId);
           
-          // ✅ FIX: Don't count your own messages as unread
           if (payload.senderId === currentUserId) {
             console.log('⏭️ Ignoring own message for unread count');
             return;
@@ -76,10 +117,16 @@ export const MessageProvider = ({ children }) => {
             console.log('➕ Adding NEW unread conversation:', payload.conversationId);
             conversationsWithUnreadRef.current.add(payload.conversationId);
             setUnreadConversationsCount(prev => prev + 1);
+            
+            // ✅ Remove from read set in localStorage
+            const readConversations = getReadConversations();
+            readConversations.delete(payload.conversationId);
+            saveReadConversations(readConversations);
           }
+          
+          fetchConversations();
         });
 
-        // ✅ Listen for 3-way conversation creation
         unsubscribeConversations = websocketService.onConversationNotification((payload) => {
           console.log('🎉 MessageContext: 3-way conversation created:', payload);
           
@@ -89,27 +136,24 @@ export const MessageProvider = ({ children }) => {
             .map(p => p.name)
             .join(' and ');
           
-          // Show browser notification (if permitted)
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('🎉 Perfect Match!', {
               body: `A group chat has been created for "${roomTitle}" with ${participantNames}`,
-              icon: '/logo.png'
+              icon: '/logo192.png'
             });
           }
           
-          // Show in-app confirmation
           const shouldOpen = window.confirm(
             `🎉 Match!\n\nA group chat has been created for "${roomTitle}"\nwith ${participantNames}.\n\nOpen it now?`
           );
           
           if (shouldOpen) {
-            navigate('/messages', { 
+            navigate('/dashboard/messages', {
               state: { conversationId: conversationId } 
             });
           }
           
-          // Refresh unread count
-          fetchUnreadConversationsCount();
+          fetchConversations();
         });
       })
       .catch(error => {
@@ -129,23 +173,42 @@ export const MessageProvider = ({ children }) => {
     
     if (wasUnread) {
       console.log('✅ Marking conversation as read:', conversationId);
+      
+      // ✅ Update in-memory state
       conversationsWithUnreadRef.current.delete(conversationId);
       setUnreadConversationsCount(prev => Math.max(0, prev - 1));
+      
+      // ✅ SAVE TO LOCALSTORAGE
+      const readConversations = getReadConversations();
+      readConversations.add(conversationId);
+      saveReadConversations(readConversations);
+      console.log('💾 Saved read status to localStorage');
+      
+      // ✅ Update conversation state
+      setAllConversations(prev => 
+        prev.map(conv => {
+          const convId = conv.id || conv.conversationId;
+          if (convId === conversationId) {
+            console.log('🔄 Updating conversation unreadCount to 0 for:', convId);
+            return { ...conv, unreadCount: 0 };
+          }
+          return conv;
+        })
+      );
+    } else {
+      console.log('ℹ️ Conversation was NOT unread:', conversationId);
     }
-  };
-
-  const refreshUnreadCount = () => {
-    console.log('🔄 Refreshing unread conversations count...');
-    fetchUnreadConversationsCount();
   };
 
   return (
     <MessageContext.Provider
       value={{
+        allConversations,
         unreadConversationsCount,
+        unreadConversationIds: conversationsWithUnreadRef.current,
         isConnected,
         markConversationAsRead,
-        refreshUnreadCount,
+        fetchConversations,
       }}
     >
       {children}

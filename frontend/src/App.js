@@ -1,16 +1,25 @@
 // FE/src/App.js
 
-import React from 'react';
-import { BrowserRouter } from 'react-router-dom'; // ✅ ADD THIS
+import React, { useEffect } from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './AppRoutes';
 import { MessageProvider } from './contexts/MessageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
 function App() {
+  // ✅ Request notification permission on app load
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('🔔 Notification permission:', permission);
+      });
+    }
+  }, []);
+
   return (
-    <BrowserRouter> {/* ✅ ADD THIS - Router must be outermost */}
+    <BrowserRouter>
       <ThemeProvider>
-        <MessageProvider>
+        <MessageProvider> {/* ✅ ONLY ONE MessageProvider HERE */}
           <AppRoutes />
         </MessageProvider>
       </ThemeProvider>

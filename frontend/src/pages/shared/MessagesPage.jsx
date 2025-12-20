@@ -20,7 +20,7 @@ function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  const { markConversationAsRead } = useMessages();
+  const { markConversationAsRead, unreadConversationIds } = useMessages();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const currentUserId = user.userId;
@@ -166,8 +166,6 @@ function MessagesPage() {
       return;
     }
 
-    const hasUnread = (conversation.unreadCount || 0) > 0;
-
     setSelectedConversation(conversation);
 
     try {
@@ -185,12 +183,12 @@ function MessagesPage() {
       
       setMessages(data.messages || []);
       
-      await messageService.markAsRead(convId);
+      // ✅ ALWAYS mark as read (remove the if condition)
+      console.log('📖 MessagesPage - Marking conversation as read:', convId);
+      markConversationAsRead(convId);
+      console.log('✅ Marked conversation as read');
       
-      if (hasUnread) {
-        markConversationAsRead(convId);
-      }
-      
+      // Update local conversation list
       setConversations(prev => prev.map(conv => {
         const cId = conv.id || conv.conversationId;
         if (cId === convId) {
@@ -299,6 +297,7 @@ function MessagesPage() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           currentUserId={currentUserId} // ✅ PASS currentUserId
+          unreadConversationIds={unreadConversationIds}
           compact={false}
         />
       </div>

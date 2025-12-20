@@ -9,9 +9,33 @@ function ConversationList({
   onSelectConversation,
   searchQuery,
   onSearchChange,
-  currentUserId, // ✅ NEW PROP
+  currentUserId,
+  unreadConversationIds = new Set(), // ✅ ADD THIS PARAMETER
   compact = false
 }) {
+  
+  console.log('📋 ConversationList - Rendering with:', {
+    conversationsCount: conversations.length,
+    hasOnSelectConversation: typeof onSelectConversation === 'function',
+    unreadCount: unreadConversationIds.size // ✅ ADD THIS LOG
+  });
+
+  // ✅ Helper function to format preview message
+  const formatPreviewMessage = (conversation) => {
+    const isThreeWay = conversation.conversationType === 'THREE_WAY';
+    const lastMessage = conversation.lastMessage || 'No messages yet';
+    
+    if (isThreeWay && conversation.allParticipants && lastMessage !== 'No messages yet') {
+      const colonIndex = lastMessage.indexOf(':');
+      if (colonIndex !== -1 && colonIndex < 30) {
+        return lastMessage;
+      }
+      return lastMessage;
+    }
+    
+    return lastMessage;
+  };
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800">
       {/* Search Bar */}
@@ -42,13 +66,29 @@ function ConversationList({
               selectedConversation?.id === convId ||
               selectedConversation?.conversationId === convId;
 
-            const hasUnread = (conversation.unreadCount || 0) > 0;
+            // ✅ USE CONTEXT TO DETERMINE IF UNREAD (CHANGED THIS LINE)
+            const hasUnread = unreadConversationIds.has(convId);
             const isThreeWay = conversation.conversationType === 'THREE_WAY';
+
+            const handleClick = () => {
+              console.log('🖱️ ConversationList - Conversation clicked:', {
+                convId,
+                conversation,
+                hasUnread // ✅ ADD THIS LOG
+              });
+              
+              if (typeof onSelectConversation === 'function') {
+                console.log('✅ Calling onSelectConversation');
+                onSelectConversation(conversation);
+              } else {
+                console.error('❌ onSelectConversation is not a function!');
+              }
+            };
 
             return (
               <button
                 key={convId}
-                onClick={() => onSelectConversation(conversation)}
+                onClick={handleClick}
                 className={`w-full p-4 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition border-b border-gray-100 dark:border-gray-700 ${
                   isSelected
                     ? 'bg-teal-50 dark:bg-teal-900/30 border-l-4 border-l-teal-500 dark:border-l-teal-400'
@@ -99,7 +139,7 @@ function ConversationList({
                       {isThreeWay 
                         ? (conversation.allParticipants 
                             ? conversation.allParticipants
-                                .filter(p => p.userId !== currentUserId) // ✅ USES PROP
+                                .filter(p => p.userId !== currentUserId)
                                 .map(p => p.name)
                                 .join(', ')
                             : 'Group Chat')
@@ -114,15 +154,15 @@ function ConversationList({
                     )}
                   </div>
 
-                  {/* Last Message */}
+                  {/* ✅ Last Message (BOLD if unread) */}
                   <p
                     className={`text-xs truncate ${
                       hasUnread
-                        ? 'font-semibold text-gray-900 dark:text-white'
-                        : 'text-gray-500 dark:text-gray-400'
+                        ? 'font-bold text-gray-900 dark:text-white'  // ✅ BOLD for unread
+                        : 'font-normal text-gray-500 dark:text-gray-400'  // ✅ NORMAL for read
                     }`}
                   >
-                    {conversation.lastMessage || 'No messages yet'}
+                    {formatPreviewMessage(conversation)}
                   </p>
 
                   {/* Timestamp */}
