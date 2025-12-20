@@ -124,34 +124,17 @@ export const MessageProvider = ({ children }) => {
             saveReadConversations(readConversations);
           }
           
+          // ❌ REMOVED: Do NOT create notification for message
+          // The red badge is enough!
+          
           fetchConversations();
         });
 
         unsubscribeConversations = websocketService.onConversationNotification((payload) => {
           console.log('🎉 MessageContext: 3-way conversation created:', payload);
           
-          const { conversationId, roomTitle, participants } = payload;
-          const participantNames = participants
-            .filter(p => p.userId !== currentUserId)
-            .map(p => p.name)
-            .join(' and ');
-          
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('🎉 Perfect Match!', {
-              body: `A group chat has been created for "${roomTitle}" with ${participantNames}`,
-              icon: '/logo192.png'
-            });
-          }
-          
-          const shouldOpen = window.confirm(
-            `🎉 Match!\n\nA group chat has been created for "${roomTitle}"\nwith ${participantNames}.\n\nOpen it now?`
-          );
-          
-          if (shouldOpen) {
-            navigate('/dashboard/messages', {
-              state: { conversationId: conversationId } 
-            });
-          }
+          // ❌ REMOVED: Do NOT show alert or notification
+          // NotificationContext handles this now!
           
           fetchConversations();
         });

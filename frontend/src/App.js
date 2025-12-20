@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './AppRoutes';
+import { NotificationProvider } from './contexts/NotificationContext'; // ✅ ADD THIS
 import { MessageProvider } from './contexts/MessageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -19,9 +20,11 @@ function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <MessageProvider> {/* ✅ ONLY ONE MessageProvider HERE */}
-          <AppRoutes />
-        </MessageProvider>
+        <NotificationProvider> {/* ✅ ADD THIS WRAPPER */}
+          <MessageProvider>
+            <AppRoutes />
+          </MessageProvider>
+        </NotificationProvider> {/* ✅ ADD THIS CLOSING TAG */}
       </ThemeProvider>
     </BrowserRouter>
   );
