@@ -77,16 +77,38 @@ class WebSocketService {
                 `/user/queue/swipes`,
                 (message) => {
                   console.log('🎯 RAW SWIPE RECEIVED FROM BROKER:', message);
-                  const payload = JSON.parse(message.body);
-                  console.log('👍 ✅ NEW SWIPE RECEIVED:', payload);
+                  console.log('📦 Message body (raw):', message.body);
+                  console.log('📋 Message headers:', message.headers);
+                  
+                  try {
+                    const payload = JSON.parse(message.body);
+                    console.log('👍 ✅ PARSED SWIPE PAYLOAD:', payload);
+                    console.log('📊 Swipe details:', {
+                      swipeId: payload.swipeId,
+                      swiperId: payload.swiperId,
+                      swiperName: payload.swiperName,
+                      isMatch: payload.isMatch,
+                      type: payload.type
+                    });
+                    console.log(`🔢 Broadcasting to ${this.swipeCallbacks.length} callback(s)`);
 
-                  this.swipeCallbacks.forEach(callback => {
-                    try {
-                      callback(payload);
-                    } catch (error) {
-                      console.error('❌ Error in swipe callback:', error);
+                    if (this.swipeCallbacks.length === 0) {
+                      console.warn('⚠️ NO SWIPE CALLBACKS REGISTERED!');
                     }
-                  });
+
+                    this.swipeCallbacks.forEach((callback, index) => {
+                      console.log(`🔄 Executing swipe callback #${index + 1}`);
+                      try {
+                        callback(payload);
+                        console.log(`✅ Callback #${index + 1} executed successfully`);
+                      } catch (error) {
+                        console.error(`❌ Error in swipe callback #${index + 1}:`, error);
+                      }
+                    });
+                  } catch (error) {
+                    console.error('❌ Error parsing swipe message:', error);
+                    console.error('📦 Raw body that failed:', message.body);
+                  }
                 }
               );
 

@@ -72,30 +72,37 @@ export const NotificationProvider = ({ children }) => {
   }, []);
 
   // ✅ Handle notification click (navigate to relevant page)
-  const handleNotificationClick = useCallback((notification) => {
-    console.log('🖱️ Notification clicked:', notification);
-    
-    markAsRead(notification.id);
-    
-    switch (notification.type) {
-      case 'swipe':
-        // Navigate to Find Roommates page
-        navigate('/dashboard/find-roommates');
-        break;
+    const handleNotificationClick = useCallback((notification) => {
+        console.log('🖱️ Notification clicked:', notification);
         
-      case 'match':
-      case 'group-match':
-        // Navigate to Messages page and open conversation
-        navigate('/dashboard/messages', {
-          state: { conversationId: notification.data.conversationId }
-        });
-        break;
+        markAsRead(notification.id);
         
-      default:
-        console.warn('Unknown notification type:', notification.type);
-        break;
-    }
-  }, [navigate, markAsRead]);
+        switch (notification.type) {
+            case 'swipe':
+            // Navigate to Find Roommates page and show the swiper's profile
+            console.log('🔄 Navigating to Find Roommates with swiper:', notification.data.swiperId);
+            navigate('/dashboard/tenant/find-roommates', {
+                state: { 
+                viewSwiperId: notification.data.swiperId,
+                swiperName: notification.data.swiperName,
+                swiperAvatar: notification.data.swiperAvatar
+                }
+            });
+            break;
+            
+            case 'match':
+            case 'group-match':
+            // Navigate to Messages page and open conversation
+            navigate('/dashboard/messages', {
+                state: { conversationId: notification.data.conversationId }
+            });
+            break;
+            
+            default:
+            console.warn('Unknown notification type:', notification.type);
+            break;
+        }
+    }, [navigate, markAsRead]);
 
   // ✅ WebSocket connection and subscriptions
   useEffect(() => {
@@ -115,59 +122,92 @@ export const NotificationProvider = ({ children }) => {
 
         // ✅ 1. SWIPE NOTIFICATIONS (interests and matches)
         unsubscribeSwipes = websocketService.onNewSwipe((payload) => {
-            console.log('👋 Interest notification received:', payload);
-            
-            if (!payload.isMatch) {
-                // ✅ JUST A SWIPE (someone is interested)
-                addNotification({
-                id: `swipe-${payload.swipeId || Date.now()}`,
-                type: 'swipe',
-                title: `${payload.swiperName} is interested!`,
-                description: 'Check out their profile and swipe right to connect',
-                icon: '👋',
-                timestamp: payload.timestamp || new Date().toISOString(),
-                read: false,
-                data: {
-                    swiperId: payload.swiperId,
-                    swiperName: payload.swiperName,
-                    swiperAvatar: payload.swiperAvatar,
-                }
-                });
-                
-                // Show browser notification
-                if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('New Interest! 👋', {
-                    body: `${payload.swiperName} wants to connect with you!`,
-                    icon: payload.swiperAvatar || '/logo192.png'
-                });
-                }
-            } else {
-                // ✅ IT'S A MATCH!
-                addNotification({
-                id: `match-${payload.conversationId || Date.now()}`,
-                type: 'match',
-                title: `It's a Match! 🎉`,
-                description: `You and ${payload.swiperName} both swiped right!`,
-                icon: '🎉',
-                timestamp: payload.timestamp || new Date().toISOString(),
-                read: false,
-                data: {
-                    conversationId: payload.conversationId,
-                    matchedUserId: payload.swiperId,
-                    matchedUserName: payload.swiperName,
-                    matchedUserAvatar: payload.swiperAvatar,
-                }
-                });
-                
-                // Show browser notification
-                if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification(`It's a Match! 🎉`, {
-                    body: `You and ${payload.swiperName} can now chat!`,
-                    icon: payload.swiperAvatar || '/logo192.png'
-                });
-                }
-            }
+        console.log('🎯 NOTIFICATION CONTEXT: Swipe callback triggered!');
+        console.log('📦 Received payload:', payload);
+        console.log('📊 Payload details:', {
+            swipeId: payload.swipeId,
+            swiperId: payload.swiperId,
+            swiperName: payload.swiperName,
+            isMatch: payload.isMatch,
+            conversationId: payload.conversationId
         });
+        
+        if (!payload) {
+            console.error('❌ Payload is null/undefined!');
+            return;
+        }
+        
+        if (!payload.isMatch) {
+            console.log('👋 Processing interest notification...');
+            
+            const notification = {
+            id: `swipe-${payload.swipeId || Date.now()}`,
+            type: 'swipe',
+            title: `${payload.swiperName} is interested!`,
+            description: 'Check out their profile and swipe right to connect',
+            icon: '👋',
+            timestamp: payload.timestamp || new Date().toISOString(),
+            read: false,
+            data: {
+                swiperId: payload.swiperId,
+                swiperName: payload.swiperName,
+                swiperAvatar: payload.swiperAvatar,
+            }
+            };
+            
+            console.log('➕ Adding interest notification:', notification);
+            addNotification(notification);
+            console.log('✅ Interest notification added!');
+            
+            // Show browser notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+            console.log('🔔 Showing browser notification');
+            new Notification('New Interest! 👋', {
+                body: `${payload.swiperName} wants to connect with you!`,
+                icon: payload.swiperAvatar || '/logo192.png'
+            });
+            } else {
+            console.log('⚠️ Browser notifications not available or not permitted');
+            }
+        } else {
+            console.log('🎉 Processing match notification...');
+            
+            const notification = {
+            id: `match-${payload.conversationId || Date.now()}`,
+            type: 'match',
+            title: `It's a Match! 🎉`,
+            description: `You and ${payload.swiperName} both swiped right!`,
+            icon: '🎉',
+            timestamp: payload.timestamp || new Date().toISOString(),
+            read: false,
+            data: {
+                conversationId: payload.conversationId,
+                matchedUserId: payload.swiperId,
+                matchedUserName: payload.swiperName,
+                matchedUserAvatar: payload.swiperAvatar,
+            }
+            };
+            
+            console.log('➕ Adding match notification:', notification);
+            addNotification(notification);
+            console.log('✅ Match notification added!');
+            
+            // Show browser notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+            console.log('🔔 Showing browser notification');
+            new Notification(`It's a Match! 🎉`, {
+                body: `You and ${payload.swiperName} can now chat!`,
+                icon: payload.swiperAvatar || '/logo192.png'
+            });
+            } else {
+            console.log('⚠️ Browser notifications not available or not permitted');
+            }
+        }
+        
+        console.log('🏁 Swipe callback finished processing');
+        });
+
+        console.log('✅ Swipe callback registered in NotificationContext');
 
         // ✅ 2. CONVERSATION NOTIFICATIONS (3-way group chats)
         unsubscribeConversations = websocketService.onConversationNotification((payload) => {

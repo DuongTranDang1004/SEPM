@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Heart, Loader, MapPin, DollarSign, Calendar, ChevronLeft, Sparkles } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import tenantService from '../../services/tenantService';
 import aiService from '../../services/aiService';
 import aiSessionManager from '../../utils/aiSessionManager';
@@ -84,6 +84,8 @@ function MatchModal({ profile, onClose }) {
 
 const FindRoommatesPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  
   const [profiles, setProfiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,6 +104,12 @@ const FindRoommatesPage = () => {
   const [aiResult, setAiResult] = useState(null);
   const [isAILoading, setIsAILoading] = useState(false);
 
+  // ✅ NEW: Check if we're viewing a specific swiper from notification
+  const viewSwiperId = location.state?.viewSwiperId;
+  const swiperName = location.state?.swiperName;
+  const swiperAvatar = location.state?.swiperAvatar;
+  const isViewingSwiper = !!viewSwiperId;
+
   const currentProfile = profiles[currentIndex];
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -111,24 +119,41 @@ const FindRoommatesPage = () => {
     setMessage('Fetching roommate profiles...');
 
     try {
-      const data = await tenantService.getProfiles();
-
-      if (!data.tenants || data.tenants.length === 0) {
-        setMessage('No more roommates available right now. Check back later! 🔄');
-        setProfiles([]);
-      } else {
-        setProfiles(data.tenants);
+      // ✅ If viewing a specific swiper, fetch only that profile
+      if (viewSwiperId) {
+        console.log('🎯 Fetching specific swiper profile:', viewSwiperId);
+        
+        const swiperProfile = await tenantService.getProfile(viewSwiperId);
+        
+        setProfiles([swiperProfile]);
         setCurrentIndex(0);
         setMessage('');
+        
+        console.log('✅ Loaded swiper profile:', swiperProfile);
+      } else {
+        // ✅ Normal flow: fetch all available profiles
+        const data = await tenantService.getProfiles();
+
+        if (!data.tenants || data.tenants.length === 0) {
+          setMessage('No more roommates available right now. Check back later! 🔄');
+          setProfiles([]);
+        } else {
+          setProfiles(data.tenants);
+          setCurrentIndex(0);
+          setMessage('');
+        }
       }
     } catch (error) {
       console.error('Error fetching profiles:', error);
       setIsError(true);
-      setMessage('Unable to load profiles. Please check your connection.');
+      setMessage(viewSwiperId 
+        ? 'Unable to load this profile. They may have been deactivated.' 
+        : 'Unable to load profiles. Please check your connection.'
+      );
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [viewSwiperId]);
 
   useEffect(() => {
     fetchProfiles();
@@ -282,13 +307,63 @@ const FindRoommatesPage = () => {
         setShowMatchModal(true);
       }
 
-      setCurrentIndex(prev => prev + 1);
+      // ✅ If we were viewing a specific swiper, return to normal mode after swiping
+      if (isViewingSwiper) {
+        console.log('✅ Swiped on notification profile, returning to normal mode');
+        
+        // Clear the navigation state
+        navigate('/dashboard/tenant/find-roommates', { replace: true, state: {} });
+        
+        // Fetch normal profiles
+        const data = await tenantService.getProfiles();
+        
+        if (data.tenants && data.tenants.length > 0) {
+          setProfiles(data.tenants);
+          setCurrentIndex(0);
+          setMessage('');
+        } else {
+          setMessage('No more roommates available right now. Check back later! 🔄');
+          setProfiles([]);
+        }
+      } else {
+        // ✅ Normal flow: move to next profile
+        setCurrentIndex(prev => prev + 1);
+      }
+
       setShowAIResultDialog(false);
     } catch (error) {
       console.error('Error swiping:', error);
       alert('Failed to record swipe. Please try again.');
     } finally {
       setIsSwipeInProgress(false);
+    }
+  };
+
+  const handleExitSwiperView = async () => {
+    console.log('🔄 Exiting swiper view, returning to normal mode');
+    
+    // Clear navigation state
+    navigate('/dashboard/tenant/find-roommates', { replace: true, state: {} });
+    
+    // Fetch normal profiles
+    setIsLoading(true);
+    try {
+      const data = await tenantService.getProfiles();
+      
+      if (data.tenants && data.tenants.length > 0) {
+        setProfiles(data.tenants);
+        setCurrentIndex(0);
+        setMessage('');
+      } else {
+        setMessage('No more roommates available right now. Check back later! 🔄');
+        setProfiles([]);
+      }
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+      setIsError(true);
+      setMessage('Unable to load profiles. Please check your connection.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -302,7 +377,9 @@ const FindRoommatesPage = () => {
       <div className="h-full flex items-center justify-center bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <div className="text-center">
           <Loader className="w-12 h-12 text-purple-500 dark:text-purple-400 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-300 font-medium">Loading profiles...</p>
+          <p className="text-gray-600 dark:text-gray-300 font-medium">
+            {isViewingSwiper ? 'Loading profile...' : 'Loading profiles...'}
+          </p>
         </div>
       </div>
     );
@@ -322,17 +399,42 @@ const FindRoommatesPage = () => {
           </button>
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">Find Roommates</h1>
           <p className="text-gray-600 dark:text-gray-400">Swipe right to connect with potential roommates</p>
-          {swipeCount > 0 && (
+          {swipeCount > 0 && !isViewingSwiper && (
             <p className="text-sm text-purple-600 dark:text-purple-400 mt-2">
               You've swiped on {swipeCount} profile{swipeCount !== 1 ? 's' : ''} today
             </p>
           )}
-          {profiles.length > 0 && (
+          {profiles.length > 0 && !isViewingSwiper && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {profiles.length - currentIndex} profile{profiles.length - currentIndex !== 1 ? 's' : ''} remaining
             </p>
           )}
         </div>
+
+        {/* ✅ NOTIFICATION BANNER - Show if viewing from notification */}
+        {isViewingSwiper && currentProfile && (
+          <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border-2 border-blue-200 dark:border-blue-700 rounded-2xl p-6 shadow-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="text-4xl">👋</div>
+                <div>
+                  <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-1">
+                    {swiperName} is interested in you!
+                  </h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Check out their profile below and swipe right to match 💜
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleExitSwiperView}
+                className="px-4 py-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline whitespace-nowrap transition"
+              >
+                View All Profiles
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Status Message */}
         {message && (
@@ -341,12 +443,22 @@ const FindRoommatesPage = () => {
           }`}>
             {message}
             {isError && (
-              <button
-                onClick={fetchProfiles}
-                className="block mx-auto mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-              >
-                Retry
-              </button>
+              <div className="mt-4 space-x-3">
+                <button
+                  onClick={fetchProfiles}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Retry
+                </button>
+                {isViewingSwiper && (
+                  <button
+                    onClick={handleExitSwiperView}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+                  >
+                    View All Profiles
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -503,14 +615,26 @@ const FindRoommatesPage = () => {
             <div className="text-6xl mb-4">😊</div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">All Done!</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              You've seen all available profiles. New profiles are added daily!
+              {isViewingSwiper 
+                ? "This profile is no longer available." 
+                : "You've seen all available profiles. New profiles are added daily!"}
             </p>
-            <button
-              onClick={fetchProfiles}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-purple-600 hover:to-pink-600 transition"
-            >
-              Refresh Profiles
-            </button>
+            <div className="space-x-3">
+              <button
+                onClick={fetchProfiles}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-xl hover:from-purple-600 hover:to-pink-600 transition"
+              >
+                Refresh Profiles
+              </button>
+              {isViewingSwiper && (
+                <button
+                  onClick={handleExitSwiperView}
+                  className="bg-gray-500 text-white font-semibold py-3 px-6 rounded-xl hover:bg-gray-600 transition"
+                >
+                  View All Profiles
+                </button>
+              )}
+            </div>
           </div>
         )}
 
